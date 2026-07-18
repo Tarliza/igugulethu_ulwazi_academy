@@ -20,12 +20,12 @@ export const Route = createFileRoute("/contact")({
           <div className="rounded-2xl bg-card p-6 shadow-soft">
             <Phone className="h-6 w-6 text-brand-amber" />
             <h3 className="mt-4 font-semibold text-brand-navy">Call us</h3>
-            <p className="mt-1 text-sm text-muted-foreground">067 143 2917</p>
+            <p className="mt-1 text-sm text-muted-foreground">067 148 6015</p>
           </div>
           <div className="rounded-2xl bg-card p-6 shadow-soft">
             <Mail className="h-6 w-6 text-brand-amber" />
             <h3 className="mt-4 font-semibold text-brand-navy">Email us</h3>
-            <p className="mt-1 text-sm text-muted-foreground">hello@iguacademy.co.za</p>
+            <p className="mt-1 text-sm text-muted-foreground">moiane158@gmail.com</p>
           </div>
           <div className="rounded-2xl bg-card p-6 shadow-soft">
             <MapPin className="h-6 w-6 text-brand-amber" />
