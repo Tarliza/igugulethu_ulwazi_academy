@@ -56,16 +56,20 @@ function RegisterPage() {
     e.preventDefault();
     if (!proof) return;
 
+    // 1. CRITICAL FIX: Scoop the form data immediately before any 'await' clears the event!
+    const data = new FormData(e.currentTarget);
+
     try {
       const fileExt = proof.name.split(".").pop() ?? "bin";
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      
       const { error: uploadError } = await supabase.storage
         .from("proof-of-payment")
         .upload(fileName, proof);
 
       if (uploadError) throw uploadError;
 
-      const data = new FormData(e.currentTarget);
+      // 2. Now we use the data we safely captured earlier
       const { error: dbError } = await supabase.from("pending_registrations").insert({
         first_name: String(data.get("firstName") ?? "").trim(),
         last_name: String(data.get("lastName") ?? "").trim(),
