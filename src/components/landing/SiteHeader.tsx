@@ -1,76 +1,113 @@
-import { Link } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
-import { useState } from "react";
-import { Logo } from "@/components/brand/Logo";
+import React, { useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { Menu, X, GraduationCap, UserCheck, ShieldCheck, Phone, BookOpen } from 'lucide-react';
+import { Button } from '../ui/button';
 
 export function SiteHeader() {
-  const [open, setOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-brand-cream/90 backdrop-blur border-b border-border/60">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10">
-        <Link to="/" className="min-w-0">
-          <Logo />
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Brand Logo */}
+        <Link to="/" className="flex items-center space-x-2">
+          <div className="rounded-lg bg-primary p-2 text-primary-foreground">
+            <GraduationCap className="h-6 w-6" />
+          </div>
+          <span className="font-bold text-lg sm:text-xl tracking-tight">
+            Igugulethu Ulwazi Academy
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          <Link
-            to="/about"
-            className="text-sm font-medium text-brand-navy/80 transition hover:text-brand-navy"
-          >
-            About Us
+        {/* Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          <Link to="/" className="transition-colors hover:text-primary">
+            Home
           </Link>
-          <Link
-            to="/subscription"
-            className="text-sm font-medium text-brand-navy/80 transition hover:text-brand-navy"
-          >
-            Subscriptions
+          <Link to="/about" className="transition-colors hover:text-primary">
+            About
           </Link>
-          <Link
-            to="/contact"
-            className="text-sm font-medium text-brand-navy/80 transition hover:text-brand-navy"
-          >
-            Contact Us
-          </Link>
-          <Link
-            to="/student-login"
-            className="text-sm font-medium text-brand-navy/80 transition hover:text-brand-navy"
-          >
-            Student Login
-          </Link>
-          <Link
-            to="/staff-login"
-            className="text-sm font-medium text-brand-navy/80 transition hover:text-brand-navy"
-          >
-            Staff Login
-          </Link>
-          <Link
-            to="/student-signup"
-            className="inline-flex items-center rounded-full bg-brand-amber px-6 py-2.5 text-sm font-semibold text-brand-navy shadow-soft transition hover:brightness-105"
-          >
-            Sign Up
+          <Link to="/contact" className="transition-colors hover:text-primary">
+            Contact
           </Link>
         </nav>
 
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-navy text-white md:hidden"
-          aria-label="Toggle menu"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        {/* Desktop Portal Buttons */}
+        <div className="hidden md:flex items-center space-x-3">
+          <Link to="/student-login">
+            <Button variant="outline" size="sm" className="flex items-center gap-1.5">
+              <UserCheck className="h-4 w-4" />
+              Student Portal
+            </Button>
+          </Link>
+          <Link to="/staff-login">
+            <Button variant="default" size="sm" className="flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4" />
+              Staff Portal
+            </Button>
+          </Link>
+        </div>
+
+        {/* Mobile Menu Toggle Button */}
+        <div className="flex md:hidden">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+            className="h-10 w-10 p-2"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </Button>
+        </div>
       </div>
 
-      {open && (
-        <div className="border-t border-border/60 bg-brand-cream md:hidden">
-          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3">
-            <Link to="/about" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-brand-navy hover:bg-accent">About Us</Link>
-            <Link to="/subscription" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-brand-navy hover:bg-accent">Subscriptions</Link>
-            <Link to="/contact" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-brand-navy hover:bg-accent">Contact Us</Link>
-            <Link to="/student-login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-brand-navy hover:bg-accent">Student Login</Link>
-            <Link to="/staff-login" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-brand-navy hover:bg-accent">Staff Login</Link>
-            <Link to="/student-signup" onClick={() => setOpen(false)} className="mt-1 rounded-full bg-brand-amber px-4 py-2.5 text-center text-sm font-semibold text-brand-navy">Sign Up</Link>
-          </nav>
+      {/* Mobile Navigation Drawer / Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b bg-background px-4 pt-2 pb-6 space-y-4 shadow-lg animate-in slide-in-from-top duration-200">
+          <div className="flex flex-col space-y-3 pt-2">
+            <Link
+              to="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2 rounded-md text-base font-medium hover:bg-accent transition-colors"
+            >
+              Home
+            </Link>
+            <Link
+              to="/about"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2 rounded-md text-base font-medium hover:bg-accent transition-colors"
+            >
+              About
+            </Link>
+            <Link
+              to="/contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2 rounded-md text-base font-medium hover:bg-accent transition-colors"
+            >
+              Contact
+            </Link>
+          </div>
+
+          <div className="pt-4 border-t flex flex-col space-y-2.5">
+            <Link to="/student-login" onClick={() => setMobileMenuOpen(false)} className="w-full">
+              <Button variant="outline" className="w-full justify-center gap-2">
+                <UserCheck className="h-4 w-4" />
+                Student Portal
+              </Button>
+            </Link>
+            <Link to="/staff-login" onClick={() => setMobileMenuOpen(false)} className="w-full">
+              <Button variant="default" className="w-full justify-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                Staff Portal
+              </Button>
+            </Link>
+          </div>
         </div>
       )}
     </header>

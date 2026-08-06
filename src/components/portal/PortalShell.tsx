@@ -1,201 +1,190 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import type { LucideIcon } from "lucide-react";
-import { LogOut, HelpCircle, Menu, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import logo from "@/assets/logo.jpeg";
+import React, { useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  LayoutDashboard,
+  BookOpen,
+  Calendar,
+  GraduationCap,
+  MessageSquare,
+  CreditCard,
+  User,
+  LogOut,
+  Menu,
+  X,
+  ChevronRight
+} from 'lucide-react';
+import { Button } from '../ui/button';
 
-export interface PortalNavItem {
+interface NavItem {
   label: string;
   to: string;
-  icon: LucideIcon;
+  icon: React.ElementType;
 }
 
 interface PortalShellProps {
-  portalName: string;
-  variant: "tutor" | "student";
-  nav: PortalNavItem[];
-  user: { name: string; subtitle: string; initials: string; avatar?: string };
-  children: ReactNode;
-  pageTitle: string;
+  title: string;
+  userType: 'student' | 'staff';
+  userEmail?: string;
+  userName?: string;
+  children: React.ReactNode;
 }
 
-/**
- * Two visual styles per the Figma designs:
- *  - "tutor": deep-navy sidebar, white content area
- *  - "student": light sidebar with amber active pill, cool content area
- */
 export function PortalShell({
-  portalName,
-  variant,
-  nav,
-  user,
-  children,
-  pageTitle,
+  title,
+  userType,
+  userEmail = 'user@academy.co.za',
+  userName = 'Kuhle Ngam',
+  children
 }: PortalShellProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
-  const isTutor = variant === "tutor";
+  const studentNavItems: NavItem[] = [
+    { label: 'Dashboard', to: '/student', icon: LayoutDashboard },
+    { label: 'Subjects & Modules', to: '/student/subjects', icon: BookOpen },
+    { label: 'Timetable', to: '/student/timetable', icon: Calendar },
+    { label: 'Grades & Results', to: '/student/grades', icon: GraduationCap },
+    { label: 'Library Resources', to: '/student/library', icon: BookOpen },
+    { label: 'Messages', to: '/student/messages', icon: MessageSquare },
+    { label: 'Payments & Fees', to: '/student/payment', icon: CreditCard },
+    { label: 'Profile', to: '/student/profile', icon: User },
+  ];
 
-  const sidebarClass = isTutor
-    ? "bg-brand-navy text-white"
-    : "bg-white text-brand-navy border-r border-border";
+  const staffNavItems: NavItem[] = [
+    { label: 'Dashboard', to: '/staff', icon: LayoutDashboard },
+    { label: 'Student Management', to: '/staff/students', icon: User },
+    { label: 'Bookings & Appointments', to: '/staff/bookings', icon: Calendar },
+    { label: 'Resource Center', to: '/staff/resources', icon: BookOpen },
+    { label: 'Messages', to: '/staff/messages', icon: MessageSquare },
+  ];
 
-  const activeClass = isTutor
-    ? "bg-brand-amber text-brand-navy shadow-soft"
-    : "bg-brand-amber text-brand-navy shadow-soft";
+  const navItems = userType === 'student' ? studentNavItems : staffNavItems;
 
-  const inactiveClass = isTutor
-    ? "text-white/80 hover:bg-white/5 hover:text-white"
-    : "text-brand-navy/80 hover:bg-muted";
+  const handleLogout = () => {
+    // Perform logout cleanup if needed
+    navigate({ to: userType === 'student' ? '/student-login' : '/staff-login' });
+  };
 
   return (
-    <div className="flex min-h-screen bg-brand-cream">
-      {/* Sidebar (desktop) */}
+    <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row">
+      {/* Mobile Top Navbar with Hamburger Toggle */}
+      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between border-b bg-background px-4 h-16 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle navigation drawer"
+          >
+            {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </Button>
+          <span className="font-bold text-base truncate">{title}</span>
+        </div>
+        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary capitalize">
+          {userType}
+        </span>
+      </header>
+
+      {/* Sidebar Overlay on Mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Navigation */}
       <aside
-        className={`hidden w-64 shrink-0 flex-col justify-between px-4 py-6 md:flex ${sidebarClass}`}
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-background border-r flex flex-col justify-between transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
       >
         <div>
-          <div className="flex flex-col items-center gap-3 pb-8">
-            <img
-              src={logo}
-              alt="Logo"
-              width={72}
-              height={72}
-              className="h-18 w-18 rounded-full ring-2 ring-brand-amber/50 object-cover"
-            />
-            <div className="text-center leading-tight">
-              <div className={`font-display text-sm font-extrabold ${isTutor ? "text-white" : "text-brand-navy"}`}>
+          {/* Header */}
+          <div className="h-16 flex items-center px-6 border-b justify-between">
+            <Link to="/" className="flex items-center gap-2">
+              <GraduationCap className="h-6 w-6 text-primary" />
+              <span className="font-bold text-sm leading-tight">
                 Igugulethu Ulwazi
-              </div>
-              <div className="text-xs font-bold tracking-widest text-brand-amber">
-                ACADEMY
-              </div>
-              <div className={`mt-1 text-[11px] ${isTutor ? "text-white/60" : "text-muted-foreground"}`}>
-                {portalName}
-              </div>
-            </div>
+              </span>
+            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="md:hidden h-8 w-8"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
 
-          <nav className="space-y-1.5">
-            {nav.map((item) => {
-              const active = pathname === item.to || pathname.startsWith(item.to + "/");
+          {/* Nav Links */}
+          <nav className="p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)]">
+            {navItems.map((item) => {
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
-                    active ? activeClass : inactiveClass
-                  }`}
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground [&.active]:bg-primary/10 [&.active]:text-primary"
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 opacity-40" />
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        <Link
-          to="/"
-          className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${inactiveClass}`}
-        >
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Link>
+        {/* User Info & Logout Button */}
+        <div className="p-4 border-t bg-muted/10 space-y-3">
+          <div className="flex items-center gap-3 px-2">
+            <div className="h-9 w-9 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
+              {userName.charAt(0)}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold truncate">{userName}</span>
+              <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </aside>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside
-            className={`absolute left-0 top-0 flex h-full w-72 flex-col justify-between px-4 py-6 ${sidebarClass}`}
-          >
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="hidden md:flex items-center justify-between pb-4 border-b">
             <div>
-              <div className="flex items-center justify-between pb-6">
-                <div className="flex items-center gap-2">
-                  <img src={logo} alt="" width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
-                  <span className={`font-display text-sm font-extrabold ${isTutor ? "text-white" : "text-brand-navy"}`}>
-                    {portalName}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  className={`grid h-9 w-9 place-items-center rounded-full ${isTutor ? "bg-white/10 text-white" : "bg-muted text-brand-navy"}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <nav className="space-y-1.5">
-                {nav.map((item) => {
-                  const active = pathname === item.to || pathname.startsWith(item.to + "/");
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium ${
-                        active ? activeClass : inactiveClass
-                      }`}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </nav>
+              <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+              <p className="text-sm text-muted-foreground">
+                Welcome back, {userName}
+              </p>
             </div>
-            <Link
-              to="/"
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium ${inactiveClass}`}
-            >
-              <LogOut className="h-4 w-4" /> Logout
-            </Link>
-          </aside>
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary capitalize">
+              {userType} Portal
+            </span>
+          </div>
+
+          {/* Children View */}
+          {children}
         </div>
-      )}
-
-      {/* Content */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border/60 bg-brand-cream/90 px-4 py-4 backdrop-blur sm:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-navy text-white md:hidden"
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <h1 className="truncate font-display text-lg font-extrabold text-brand-navy sm:text-2xl">
-              {pageTitle}
-            </h1>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <div className="text-sm font-semibold text-brand-navy">{user.name}</div>
-              <div className="text-xs text-muted-foreground">{user.subtitle}</div>
-            </div>
-            {user.avatar ? (
-              <img src={user.avatar} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover ring-2 ring-brand-amber/50" />
-            ) : (
-              <div className="grid h-10 w-10 place-items-center rounded-full bg-brand-amber font-bold text-brand-navy">
-                {user.initials}
-              </div>
-            )}
-          </div>
-        </header>
-
-        <main className="flex-1 p-4 sm:p-8">{children}</main>
-
-        <button
-          className="fixed bottom-5 right-5 grid h-11 w-11 place-items-center rounded-full bg-brand-navy text-white shadow-card transition hover:bg-brand-navy-deep"
-          aria-label="Help"
-        >
-          <HelpCircle className="h-5 w-5" />
-        </button>
-      </div>
+      </main>
     </div>
   );
 }
