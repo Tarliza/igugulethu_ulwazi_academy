@@ -1,107 +1,70 @@
+
+import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { User, Lock, CreditCard } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PortalShell } from "@/components/portal/PortalShell";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { PageCard } from "@/components/portal/EmptyState";
+import { Button } from "@/components/ui/button";
+import { User, Mail, Phone, School, GraduationCap, Shield } from "lucide-react";
+import { getCurrentStudent, Student } from "@/lib/student-storage";
 
 export const Route = createFileRoute("/student/profile")({
-  component: ProfilePage,
+  component: StudentProfilePage,
 });
 
-function ProfilePage() {
+export function StudentProfilePage() {
+  const [student, setStudent] = useState<Student | null>(null);
+
+  useEffect(() => {
+    setStudent(getCurrentStudent());
+  }, []);
+
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2">
-        <PageCard title="Account details" description="Your personal information on file.">
-          <form
-            className="grid gap-4 sm:grid-cols-2"
-            onSubmit={(e) => e.preventDefault()}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="first">First name</Label>
-              <Input id="first" defaultValue="Thabo" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="last">Last name</Label>
-              <Input id="last" defaultValue="Mbeki" />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="thabo@example.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" defaultValue="067 148 6015" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="grade">Grade</Label>
-              <Input id="grade" defaultValue="Grade 11" />
-            </div>
-            <div className="sm:col-span-2">
-              <Button className="bg-brand-navy text-white hover:bg-brand-navy-deep">
-                <User className="mr-2 h-4 w-4" /> Save changes
-              </Button>
-            </div>
-          </form>
-        </PageCard>
-
-        <div className="mt-6">
-          <PageCard title="Change password" description="Use a strong password you don't reuse elsewhere.">
-            <form
-              className="grid gap-4 sm:grid-cols-2"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="current">Current password</Label>
-                <Input id="current" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new">New password</Label>
-                <Input id="new" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm">Confirm new password</Label>
-                <Input id="confirm" type="password" />
-              </div>
-              <div className="sm:col-span-2">
-                <Button className="bg-brand-navy text-white hover:bg-brand-navy-deep">
-                  <Lock className="mr-2 h-4 w-4" /> Update password
-                </Button>
-              </div>
-            </form>
-          </PageCard>
+    <PortalShell role="student" title="Student Profile">
+      <div className="space-y-6 max-w-3xl">
+        <div>
+          <h2 className="text-xl font-bold">Personal & Academic Details</h2>
+          <p className="text-sm text-muted-foreground">View your enrolled profile information.</p>
         </div>
-      </div>
 
-      <div>
-        <PageCard title="Subscription" description="Your current plan status.">
-          <div className="rounded-2xl border border-border bg-brand-cream/40 p-5">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand-amber text-brand-navy">
-                <CreditCard className="h-5 w-5" />
+        <Card className="border shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-2xl uppercase">
+                {student?.fullName.charAt(0) || "S"}
               </div>
               <div>
-                <div className="text-sm font-semibold text-brand-navy">No active plan</div>
-                <div className="text-xs text-muted-foreground">
-                  Complete registration to activate.
-                </div>
+                <CardTitle className="text-xl font-bold">{student?.fullName || "Student Name"}</CardTitle>
+                <CardDescription className="font-mono text-xs text-primary font-semibold mt-0.5">
+                  {student?.studentNumber || "STU2026001"}
+                </CardDescription>
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Status</span>
-              <Badge className="bg-brand-amber-soft text-brand-navy hover:bg-brand-amber-soft">
-                Pending
-              </Badge>
+          </CardHeader>
+          <CardContent className="space-y-4 border-t pt-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Email Address</Label>
+                <Input value={student?.email || ""} readOnly className="bg-muted/40" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Phone Number</Label>
+                <Input value={student?.phone || ""} readOnly className="bg-muted/40" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Current Grade</Label>
+                <Input value={student?.grade || ""} readOnly className="bg-muted/40" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">School</Label>
+                <Input value={student?.school || ""} readOnly className="bg-muted/40" />
+              </div>
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Renews</span>
-              <span className="font-medium text-brand-navy">—</span>
-            </div>
-          </div>
-        </PageCard>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </PortalShell>
   );
 }

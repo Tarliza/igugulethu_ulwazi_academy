@@ -1,110 +1,63 @@
+
+import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CreditCard, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PortalShell } from "@/components/portal/PortalShell";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PageCard, EmptyState } from "@/components/portal/EmptyState";
-import { useState } from "react";
-import { supabase } from "@/integrations/client";
+import { Button } from "@/components/ui/button";
+import { CreditCard, CheckCircle2, ShieldCheck } from "lucide-react";
+import { getCurrentStudent, Student } from "@/lib/student-storage";
 
 export const Route = createFileRoute("/student/payment")({
-  component: PaymentPage,
+  component: StudentPaymentPage,
 });
 
-function PaymentPage() {
-  // 1. Add state to hold the file and track the upload status
-  const [file, setFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function StudentPaymentPage() {
+  const [student, setStudent] = useState<Student | null>(null);
 
-  // 2. Create the submit handler
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!file) return;
-
-    setIsSubmitting(true);
-
-    try {
-      // Get the currently logged-in student
-      // Get the currently logged-in student
-      // Get the currently logged-in student using a TypeScript bypass for the web editor
-        const { data: { user }, error: authError } = await (supabase.auth as any).getUser();
-        if (authError || !user) throw new Error("Could not verify user session");
-
-      // Format a unique filename to prevent overwriting
-      const fileExt = file.name.split(".").pop() ?? "bin";
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      
-      // Upload the file to your Storage bucket
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from("proof-of-payment") 
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      // Log the payment in your database (ensure 'payments' matches your actual table name!)
-      const { error: dbError } = await supabase.from("payments" as any).insert({
-        student_id: user.id,
-        file_path: uploadData.path,
-        status: "pending",
-      });
-
-      if (dbError) throw dbError;
-
-      alert("Proof of payment submitted successfully!");
-      setFile(null);
-      e.currentTarget.reset(); // Visually clear the file input
-      
-    } catch (error) {
-      console.error("Payment upload error:", error);
-      alert("Failed to upload proof of payment. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  useEffect(() => {
+    setStudent(getCurrentStudent());
+  }, []);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2">
-        <PageCard title="Payment history" description="Every invoice and proof of payment you have submitted.">
-          <EmptyState
-            icon={CreditCard}
-            title="No payments recorded"
-            description="Your payment history will show up here once your first invoice is generated."
-          />
-        </PageCard>
-      </div>
-      <div>
-        <PageCard
-          title="Submit proof of payment"
-          description="Upload a screenshot or PDF of your EFT / deposit."
-          action={<Badge className="bg-brand-amber-soft text-brand-navy hover:bg-brand-amber-soft">Pending</Badge>}
-        >
-          {/* 3. Attach our handler to the form */}
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="rounded-xl border border-dashed border-border bg-brand-cream/40 p-6 text-center">
-              <Upload className="mx-auto h-6 w-6 text-brand-navy" />
-              <p className="mt-2 text-xs text-muted-foreground">PNG, JPG or PDF up to 10 MB</p>
-              
-              {/* 4. Wire the input to update our state */}
-              <input 
-                type="file" 
-                accept=".pdf,image/png,image/jpeg"
-                className="mt-3 w-full text-xs" 
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                required
-              />
+    <PortalShell role="student" title="Subscription & Fee Payments">
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h2 className="text-xl font-bold">Subscription & Billing Status</h2>
+          <p className="text-sm text-muted-foreground">Manage your monthly tuition fee and view payment receipts.</p>
+        </div>
+
+        <Card className="border shadow-sm">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <Badge className="bg-green-500/15 text-green-700 border-green-500/30">Active Subscription</Badge>
+              <span className="text-2xl font-extrabold text-primary">{student?.amount || "R550"}<span className="text-xs text-muted-foreground font-normal">/mo</span></span>
             </div>
-            
-            {/* 5. Update the button to show loading state and disable when appropriate */}
-            <Button 
-              type="submit" 
-              disabled={!file || isSubmitting}
-              className="w-full bg-brand-navy text-white hover:bg-brand-navy-deep disabled:opacity-50"
-            >
-              {isSubmitting ? "Uploading..." : "Submit for review"}
-            </Button>
-          </form>
-        </PageCard>
+            <CardTitle className="text-lg font-bold mt-2">{student?.plan || "2 Subjects"} Plan</CardTitle>
+            <CardDescription>Includes live weekly group tutoring, learning library access, and assessment grading.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-xs border-t pt-4">
+            <div className="bg-muted/40 p-4 rounded-xl space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Student Name:</span>
+                <span className="font-semibold text-foreground">{student?.fullName || "Student"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Student ID:</span>
+                <span className="font-mono font-bold text-foreground">{student?.studentNumber || "STU2026001"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Payment Method:</span>
+                <span className="font-semibold text-foreground">EFT / Instant Transfer</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Payment Status:</span>
+                <span className="font-semibold text-green-600">Verified by Administration</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </PortalShell>
   );
 }

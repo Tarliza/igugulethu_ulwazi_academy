@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   BookOpen,
@@ -11,9 +12,12 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronRight
-} from 'lucide-react';
-import { Button } from '../ui/button';
+  ChevronRight,
+  BookmarkPlus,
+  FileCheck
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getCurrentStudent, studentSignOut, Student } from "@/lib/student-storage";
 
 interface NavItem {
   label: string;
@@ -22,47 +26,75 @@ interface NavItem {
 }
 
 interface PortalShellProps {
-  title: string;
-  userType: 'student' | 'staff';
+  title?: string;
+  role?: "student" | "staff";
+  userType?: "student" | "staff";
   userEmail?: string;
   userName?: string;
   children: React.ReactNode;
 }
 
 export function PortalShell({
-  title,
+  title = "Portal",
+  role,
   userType,
-  userEmail = 'user@academy.co.za',
-  userName = 'Kuhle Ngam',
+  userEmail,
+  userName,
   children
 }: PortalShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const navigate = useNavigate();
 
+  const isStudent = role === "student" || userType === "student";
+
+  useEffect(() => {
+    if (isStudent) {
+      const stu = getCurrentStudent();
+      if (stu) {
+        setActiveStudent(stu);
+      }
+    }
+  }, [isStudent]);
+
   const studentNavItems: NavItem[] = [
-    { label: 'Dashboard', to: '/student', icon: LayoutDashboard },
-    { label: 'Subjects & Modules', to: '/student/subjects', icon: BookOpen },
-    { label: 'Timetable', to: '/student/timetable', icon: Calendar },
-    { label: 'Grades & Results', to: '/student/grades', icon: GraduationCap },
-    { label: 'Library Resources', to: '/student/library', icon: BookOpen },
-    { label: 'Messages', to: '/student/messages', icon: MessageSquare },
-    { label: 'Payments & Fees', to: '/student/payment', icon: CreditCard },
-    { label: 'Profile', to: '/student/profile', icon: User },
+    { label: "Dashboard", to: "/student", icon: LayoutDashboard },
+    { label: "Subjects & Modules", to: "/student/subjects", icon: BookOpen },
+    { label: "Timetable", to: "/student/timetable", icon: Calendar },
+    { label: "Grades & Results", to: "/student/grades", icon: GraduationCap },
+    { label: "Library Resources", to: "/student/library", icon: BookOpen },
+    { label: "Book a Session", to: "/student/book", icon: BookmarkPlus },
+    { label: "Messages", to: "/student/messages", icon: MessageSquare },
+    { label: "Payments & Plan", to: "/student/payment", icon: CreditCard },
+    { label: "Profile", to: "/student/profile", icon: User },
   ];
 
   const staffNavItems: NavItem[] = [
-    { label: 'Dashboard', to: '/staff', icon: LayoutDashboard },
-    { label: 'Student Management', to: '/staff/students', icon: User },
-    { label: 'Bookings & Appointments', to: '/staff/bookings', icon: Calendar },
-    { label: 'Resource Center', to: '/staff/resources', icon: BookOpen },
-    { label: 'Messages', to: '/staff/messages', icon: MessageSquare },
+    { label: "Dashboard", to: "/staff", icon: LayoutDashboard },
+    { label: "Verifications", to: "/staff/verifications", icon: FileCheck },
+    { label: "Student Management", to: "/staff/students", icon: User },
+    { label: "Bookings & Appointments", to: "/staff/bookings", icon: Calendar },
+    { label: "Resource Center", to: "/staff/resources", icon: BookOpen },
+    { label: "Messages", to: "/staff/messages", icon: MessageSquare },
   ];
 
-  const navItems = userType === 'student' ? studentNavItems : staffNavItems;
+  const navItems = isStudent ? studentNavItems : staffNavItems;
+
+  const displayName = isStudent
+    ? activeStudent?.fullName || userName || "Student"
+    : userName || "Kuhle Ngam";
+
+  const displayEmail = isStudent
+    ? activeStudent?.studentNumber || activeStudent?.email || userEmail || "student@academy.co.za"
+    : userEmail || "moiane158@gmail.com";
 
   const handleLogout = () => {
-    // Perform logout cleanup if needed
-    navigate({ to: userType === 'student' ? '/student-login' : '/staff-login' });
+    if (isStudent) {
+      studentSignOut();
+      navigate({ to: "/student-login" });
+    } else {
+      navigate({ to: "/staff-login" });
+    }
   };
 
   return (
@@ -77,12 +109,12 @@ export function PortalShell({
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Toggle navigation drawer"
           >
-            {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6 text-foreground" />}
           </Button>
           <span className="font-bold text-base truncate">{title}</span>
         </div>
-        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary capitalize">
-          {userType}
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary capitalize">
+          {isStudent ? "Student" : "Staff"}
         </span>
       </header>
 
@@ -97,7 +129,7 @@ export function PortalShell({
       {/* Sidebar Navigation */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-background border-r flex flex-col justify-between transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
         <div>
@@ -121,7 +153,7 @@ export function PortalShell({
           </div>
 
           {/* Nav Links */}
-          <nav className="p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)]">
+          <nav className="p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-12rem)]">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -145,12 +177,12 @@ export function PortalShell({
         {/* User Info & Logout Button */}
         <div className="p-4 border-t bg-muted/10 space-y-3">
           <div className="flex items-center gap-3 px-2">
-            <div className="h-9 w-9 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
-              {userName.charAt(0)}
+            <div className="h-9 w-9 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm uppercase">
+              {displayName.charAt(0)}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold truncate">{userName}</span>
-              <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
+              <span className="text-sm font-semibold truncate">{displayName}</span>
+              <span className="text-xs text-muted-foreground truncate">{displayEmail}</span>
             </div>
           </div>
           <Button
@@ -173,11 +205,11 @@ export function PortalShell({
             <div>
               <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
               <p className="text-sm text-muted-foreground">
-                Welcome back, {userName}
+                Welcome back, {displayName}
               </p>
             </div>
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary capitalize">
-              {userType} Portal
+              {isStudent ? "Student" : "Staff"} Portal
             </span>
           </div>
 
