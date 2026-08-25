@@ -1,147 +1,146 @@
+
+import React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, ArrowRight } from "lucide-react";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, ArrowRight, Sparkles, BookmarkPlus } from "lucide-react";
 
 export const Route = createFileRoute("/subscription")({
-  head: () => ({
-    meta: [
-      { title: "Subscriptions — Igugulethu Ulwazi Academy" },
-      {
-        name: "description",
-        content:
-          "Choose from 1, 2, or 3 subject plans and unlock expert tutoring, resources, and A-grade support.",
-      },
-      { property: "og:title", content: "Subscription Plans — Igugulethu Ulwazi Academy" },
-      {
-        property: "og:description",
-        content: "Affordable monthly plans: 1 Subject R300, 2 Subjects R550, 3 Subjects R750.",
-      },
-    ],
-  }),
-  component: SubscriptionPage,
+  component: SubscriptionPlansPage,
 });
 
-const plans = [
-  {
-    id: "1-subject",
-    name: "1 Subject",
-    price: "R300",
-    tagline: "Perfect for focused improvement",
-    highlight: false,
-    features: [
-      "1 subject of your choice",
-      "Weekly live tutor sessions",
-      "Access to study resources",
-      "Practice quizzes & feedback",
-    ],
-  },
-  {
-    id: "2-subjects",
-    name: "2 Subjects",
-    price: "R550",
-    tagline: "Our most popular option",
-    highlight: true,
-    features: [
-      "2 subjects of your choice",
-      "Weekly live tutor sessions",
-      "Full library & past papers",
-      "Priority tutor messaging",
-    ],
-  },
-  {
-    id: "3-subjects",
-    name: "3 Subjects",
-    price: "R750",
-    tagline: "Best value for A-grade seekers",
-    highlight: false,
-    features: [
-      "3 subjects of your choice",
-      "Unlimited live tutor sessions",
-      "Full library & past papers",
-      "1-on-1 tutor bookings",
-    ],
-  },
-];
+export function SubscriptionPlansPage() {
+  const plans = [
+    {
+      id: "1-subject",
+      name: "1 Subject",
+      amount: "R300",
+      period: "/month",
+      badge: "Focused Improvement",
+      desc: "Ideal for learners seeking dedicated assistance in a single key subject.",
+      features: [
+        "1 Subject of your choice",
+        "Weekly live tutor group session",
+        "Access to past papers & subject study notes",
+        "Weekly practice quizzes & revision feedback",
+      ],
+      cta: "Select 1 Subject Plan",
+      popular: false,
+    },
+    {
+      id: "2-subjects",
+      name: "2 Subjects",
+      amount: "R550",
+      period: "/month",
+      badge: "MOST POPULAR",
+      desc: "Our standard full-term support package covering major academic combinations.",
+      features: [
+        "2 Subjects of your choice (e.g. Maths & Science)",
+        "Weekly live tutor sessions for both subjects",
+        "Full learning library access & past paper memos",
+        "Priority tutor communication & academic tracking",
+      ],
+      cta: "Select 2 Subjects Plan",
+      popular: true,
+    },
+    {
+      id: "3-subjects",
+      name: "3 Subjects",
+      amount: "R750",
+      period: "/month",
+      badge: "BEST VALUE FOR A-GRADES",
+      desc: "Comprehensive excellence package with exclusive 1-on-1 tutoring sessions.",
+      features: [
+        "3 Subjects of your choice",
+        "Unlimited live tutor sessions & weekend camps",
+        "Full study library & exam revision worksheets",
+        "★ Exclusive: Book 1-on-1 Private Tutor Sessions",
+        "Dedicated tertiary & bursary application support",
+      ],
+      cta: "Select 3 Subjects Plan",
+      popular: false,
+    },
+  ];
 
-function SubscriptionPage() {
   return (
-    <div className="min-h-screen bg-brand-cream">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SiteHeader />
-      <section className="mx-auto max-w-6xl px-6 py-20 lg:px-10">
-        <div className="text-center">
-          <span className="inline-block rounded-full bg-brand-amber-soft px-4 py-1.5 text-[11px] font-bold tracking-[0.2em] text-brand-navy">
-            SUBSCRIPTION PLANS
-          </span>
-          <h1 className="mt-4 font-display text-4xl font-extrabold text-brand-navy sm:text-5xl">
-            Choose the plan that fits you.
-          </h1>
-          <p className="mt-3 text-muted-foreground">
-            Simple monthly pricing. Cancel anytime. A-grade support included.
+
+      <div className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 max-w-6xl">
+        <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
+          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">ACADEMIC TUITION PLANS</Badge>
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">Choose the Plan That Fits You</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Simple monthly pricing. Cancel anytime. Pick the subjects you want to master.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
           {plans.map((p) => (
-            <div
+            <Card
               key={p.id}
-              className={`relative flex flex-col rounded-3xl p-8 shadow-card transition hover:-translate-y-1 ${
-                p.highlight
-                  ? "bg-brand-navy text-white"
-                  : "bg-card text-brand-navy border border-border"
+              className={`flex flex-col justify-between relative shadow-sm hover:shadow-lg transition-all rounded-2xl border ${
+                p.popular ? "border-primary shadow-md scale-105 bg-card ring-2 ring-primary/20" : "bg-card"
               }`}
             >
-              {p.highlight && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-amber px-3 py-1 text-[10px] font-bold tracking-widest text-brand-navy">
-                  MOST POPULAR
-                </span>
+              {p.popular && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-primary text-primary-foreground font-bold text-xs px-3 py-0.5 shadow">
+                    MOST POPULAR
+                  </Badge>
+                </div>
               )}
-              <h2 className="font-display text-xl font-extrabold">{p.name}</h2>
-              <p className={`mt-1 text-sm ${p.highlight ? "text-white/70" : "text-muted-foreground"}`}>
-                {p.tagline}
-              </p>
-              <div className="mt-6 flex items-baseline gap-1">
-                <span className="font-display text-5xl font-black">{p.price}</span>
-                <span className={`text-sm ${p.highlight ? "text-white/60" : "text-muted-foreground"}`}>
-                  /month
-                </span>
-              </div>
-              <ul className="mt-6 space-y-3 text-sm">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${
-                        p.highlight ? "text-brand-amber" : "text-brand-navy"
-                      }`}
-                    />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/register"
-                search={{ plan: p.id }}
-                className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition ${
-                  p.highlight
-                    ? "bg-brand-amber text-brand-navy hover:brightness-105"
-                    : "bg-brand-navy text-white hover:brightness-110"
-                }`}
-              >
-                Select plan <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+
+              <CardHeader className="pt-8">
+                <span className="text-xs font-bold text-muted-foreground uppercase">{p.badge}</span>
+                <CardTitle className="text-2xl font-bold mt-1">{p.name}</CardTitle>
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="text-4xl font-extrabold text-foreground">{p.amount}</span>
+                  <span className="text-xs text-muted-foreground">{p.period}</span>
+                </div>
+                <CardDescription className="text-xs mt-2">{p.desc}</CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4 pt-2 border-t text-sm flex-1">
+                <ul className="space-y-2.5 pt-3">
+                  {p.features.map((feat) => (
+                    <li key={feat} className="flex items-start gap-2.5 text-xs font-medium">
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+
+              <CardFooter className="pt-4 border-t">
+                <Link to={`/register?plan=${p.id}`} className="w-full">
+                  <Button
+                    variant={p.popular ? "default" : "outline"}
+                    className="w-full font-bold text-xs h-11 gap-1.5"
+                  >
+                    <span>{p.cta}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
           ))}
         </div>
 
-        <p className="mt-10 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link to="/student-login" className="font-semibold text-brand-navy hover:underline">
+        <div className="mt-14 text-center text-xs text-muted-foreground">
+          Already registered?{" "}
+          <Link to="/student-login" className="text-primary font-bold hover:underline">
             Sign in as a student
           </Link>
-          .
-        </p>
-      </section>
+        </div>
+      </div>
+
       <SiteFooter />
     </div>
   );
 }
+
+export default SubscriptionPlansPage;

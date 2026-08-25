@@ -1,4 +1,27 @@
 
+export const ACADEMY_SUBJECTS = [
+  "Mathematics",
+  "Physical Sciences",
+  "Life Science",
+  "Mathematical Literacy",
+  "Economics",
+  "Business Studies",
+  "History",
+  "Geography",
+] as const;
+
+export type AcademySubject = typeof ACADEMY_SUBJECTS[number];
+
+export interface StudentGrade {
+  id: string;
+  assessment: string;
+  subject: string;
+  score: number;
+  maxScore: number;
+  tutorFeedback?: string;
+  date: string;
+}
+
 export interface Registration {
   id: string;
   fullName: string;
@@ -7,10 +30,9 @@ export interface Registration {
   grade: string;
   school: string;
   subjects: string[];
-  plan: string;
+  plan: "1 Subject" | "2 Subjects" | "3 Subjects";
   amount: string;
   password?: string;
-  proofOfPaymentUrl?: string;
   proofOfPaymentName?: string;
   status: "pending" | "approved" | "rejected";
   studentNumber?: string;
@@ -26,11 +48,12 @@ export interface Student {
   grade: string;
   school: string;
   subjects: string[];
-  plan: string;
+  plan: "1 Subject" | "2 Subjects" | "3 Subjects";
   amount: string;
   password?: string;
-  status: "Active" | "Pending" | "Overdue";
+  status: "Active" | "Access Denied" | "Payment Overdue";
   enrolledAt: string;
+  grades: StudentGrade[];
 }
 
 export interface Resource {
@@ -38,86 +61,123 @@ export interface Resource {
   title: string;
   subject: string;
   description: string;
-  fileName?: string;
-  fileUrl?: string;
+  fileName: string;
+  uploadedBy: string;
   uploadedAt: string;
 }
 
-export interface Booking {
+export interface ScheduleEvent {
   id: string;
   title: string;
+  subject: string;
+  tutorName: string;
+  teamsLink: string;
   date: string;
   time: string;
   notes?: string;
   createdAt: string;
 }
 
-const REGISTRATIONS_KEY = "igugulethu_registrations";
-const STUDENTS_KEY = "igugulethu_students";
-const RESOURCES_KEY = "igugulethu_resources";
-const BOOKINGS_KEY = "igugulethu_bookings";
-const CURRENT_STUDENT_KEY = "igugulethu_current_student";
+export interface TutorBooking {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: string;
+  subject: string;
+  date: string;
+  time: string;
+  notes?: string;
+  status: "pending" | "confirmed";
+  createdAt: string;
+}
 
-// Seed initial data if empty
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  createdAt: string;
+}
+
+const REGISTRATIONS_KEY = "igugulethu_registrations_v2";
+const STUDENTS_KEY = "igugulethu_students_v2";
+const RESOURCES_KEY = "igugulethu_resources_v2";
+const SCHEDULE_KEY = "igugulethu_schedule_v2";
+const BOOKINGS_KEY = "igugulethu_bookings_v2";
+const ANNOUNCEMENTS_KEY = "igugulethu_announcements_v2";
+const CURRENT_STUDENT_KEY = "igugulethu_active_student_v2";
+
 function initializeStorage() {
   if (typeof window === "undefined") return;
 
   if (!localStorage.getItem(REGISTRATIONS_KEY)) {
-    const initialRegistrations: Registration[] = [
+    const initialRegs: Registration[] = [
       {
         id: "reg-1",
+        fullName: "Daniel Moiane",
+        email: "moiane158@gmail.com",
+        phone: "+27 67 148 6015",
+        grade: "Grade 12",
+        school: "Johannesburg South High",
+        subjects: ["Mathematics", "Physical Sciences"],
+        plan: "2 Subjects",
+        amount: "R550",
+        password: "password123",
+        proofOfPaymentName: "Capitec_Proof_Daniel.pdf",
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    localStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(initialRegs));
+  }
+
+  if (!localStorage.getItem(STUDENTS_KEY)) {
+    const initialStudents: Student[] = [
+      {
+        id: "stu-1",
+        studentNumber: "STU2026001",
         fullName: "Kuhle Ngam",
         email: "kuhlengam65@gmail.com",
         phone: "0687921613",
         grade: "Grade 11",
-        school: "Kenilworth",
-        subjects: ["Mathematics", "Life Sciences"],
+        school: "Kenilworth High",
+        subjects: ["Mathematics", "Life Science"],
         plan: "2 Subjects",
         amount: "R550",
         password: "password123",
-        proofOfPaymentName: "WhatsApp Image 2026-02-08.jpeg",
-        status: "pending",
-        createdAt: new Date().toISOString(),
+        status: "Active",
+        enrolledAt: new Date().toISOString(),
+        grades: [],
       },
-      {
-        id: "reg-2",
-        fullName: "Daniel Moiane",
-        email: "moiane158@gmail.com",
-        phone: "0712345678",
-        grade: "Grade 12",
-        school: "Kimberley High",
-        subjects: ["Physical Sciences", "Mathematics"],
-        plan: "2 Subjects",
-        amount: "R550",
-        password: "password123",
-        proofOfPaymentName: "EFT_Proof_Daniel.pdf",
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      }
     ];
-    localStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(initialRegistrations));
-  }
-
-  if (!localStorage.getItem(STUDENTS_KEY)) {
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify([]));
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(initialStudents));
   }
 
   if (!localStorage.getItem(RESOURCES_KEY)) {
     localStorage.setItem(RESOURCES_KEY, JSON.stringify([]));
   }
 
+  if (!localStorage.getItem(SCHEDULE_KEY)) {
+    localStorage.setItem(SCHEDULE_KEY, JSON.stringify([]));
+  }
+
   if (!localStorage.getItem(BOOKINGS_KEY)) {
     localStorage.setItem(BOOKINGS_KEY, JSON.stringify([]));
   }
+
+  if (!localStorage.getItem(ANNOUNCEMENTS_KEY)) {
+    localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify([]));
+  }
 }
 
+// Registrations
 export function getRegistrations(): Registration[] {
   if (typeof window === "undefined") return [];
   initializeStorage();
   try {
     const data = localStorage.getItem(REGISTRATIONS_KEY);
     return data ? JSON.parse(data) : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -169,6 +229,7 @@ export function approveRegistration(registrationId: string): { student: Student;
     password: reg.password || "password123",
     status: "Active",
     enrolledAt: new Date().toISOString(),
+    grades: [],
   };
 
   students.unshift(newStudent);
@@ -192,18 +253,19 @@ export function rejectRegistration(registrationId: string) {
   }
 }
 
+// Students
 export function getStudents(): Student[] {
   if (typeof window === "undefined") return [];
   initializeStorage();
   try {
     const data = localStorage.getItem(STUDENTS_KEY);
     return data ? JSON.parse(data) : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
 
-export function addStudentDirectly(student: Omit<Student, "id" | "studentNumber" | "enrolledAt">): Student {
+export function addStudentDirectly(student: Omit<Student, "id" | "studentNumber" | "enrolledAt" | "grades">): Student {
   const students = getStudents();
   const year = new Date().getFullYear();
   const studentNum = "STU" + year + String(students.length + 1).padStart(3, "0");
@@ -212,6 +274,7 @@ export function addStudentDirectly(student: Omit<Student, "id" | "studentNumber"
     id: "stu-" + Date.now(),
     studentNumber: studentNum,
     enrolledAt: new Date().toISOString(),
+    grades: [],
   };
   students.unshift(newStudent);
   if (typeof window !== "undefined") {
@@ -220,15 +283,67 @@ export function addStudentDirectly(student: Omit<Student, "id" | "studentNumber"
   return newStudent;
 }
 
+export function updateStudentStatus(studentId: string, status: "Active" | "Access Denied" | "Payment Overdue") {
+  const students = getStudents();
+  const idx = students.findIndex((s) => s.id === studentId);
+  if (idx !== -1) {
+    students[idx].status = status;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
+    }
+  }
+}
+
+export function deleteStudent(studentId: string) {
+  const students = getStudents().filter((s) => s.id !== studentId);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
+  }
+}
+
+export function addStudentGrade(studentId: string, grade: Omit<StudentGrade, "id" | "date">) {
+  const students = getStudents();
+  const idx = students.findIndex((s) => s.id === studentId);
+  if (idx !== -1) {
+    const newGrade: StudentGrade = {
+      ...grade,
+      id: "grade-" + Date.now(),
+      date: new Date().toLocaleDateString("en-ZA", { month: "short", day: "numeric", year: "numeric" }),
+    };
+    if (!students[idx].grades) students[idx].grades = [];
+    students[idx].grades.unshift(newGrade);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
+      // Update active student session if logged in
+      const current = getCurrentStudent();
+      if (current && current.id === studentId) {
+        localStorage.setItem(CURRENT_STUDENT_KEY, JSON.stringify(students[idx]));
+      }
+    }
+  }
+}
+
+export function getStudentAverage(student: Student | null): number {
+  if (!student || !student.grades || student.grades.length === 0) return 0;
+  const total = student.grades.reduce((sum, g) => sum + (g.score / g.maxScore) * 100, 0);
+  return Math.round(total / student.grades.length);
+}
+
+// Resources (Filtered strictly by enrolled subjects)
 export function getResources(): Resource[] {
   if (typeof window === "undefined") return [];
   initializeStorage();
   try {
     const data = localStorage.getItem(RESOURCES_KEY);
     return data ? JSON.parse(data) : [];
-  } catch (e) {
+  } catch {
     return [];
   }
+}
+
+export function getResourcesForStudent(studentSubjects: string[]): Resource[] {
+  const all = getResources();
+  return all.filter((r) => studentSubjects.includes(r.subject) || r.subject === "All Subjects");
 }
 
 export function addResource(res: Omit<Resource, "id" | "uploadedAt">): Resource {
@@ -245,22 +360,57 @@ export function addResource(res: Omit<Resource, "id" | "uploadedAt">): Resource 
   return newRes;
 }
 
-export function getBookings(): Booking[] {
+export function deleteResource(id: string) {
+  const resources = getResources().filter((r) => r.id !== id);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(RESOURCES_KEY, JSON.stringify(resources));
+  }
+}
+
+// Schedule & Calendar Sessions
+export function getScheduleEvents(): ScheduleEvent[] {
+  if (typeof window === "undefined") return [];
+  initializeStorage();
+  try {
+    const data = localStorage.getItem(SCHEDULE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "createdAt">): ScheduleEvent {
+  const events = getScheduleEvents();
+  const newEvent: ScheduleEvent = {
+    ...event,
+    id: "sched-" + Date.now(),
+    createdAt: new Date().toISOString(),
+  };
+  events.unshift(newEvent);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(events));
+  }
+  return newEvent;
+}
+
+// 1-on-1 Tutor Bookings (R750 Plan Only)
+export function getTutorBookings(): TutorBooking[] {
   if (typeof window === "undefined") return [];
   initializeStorage();
   try {
     const data = localStorage.getItem(BOOKINGS_KEY);
     return data ? JSON.parse(data) : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
 
-export function addBooking(booking: Omit<Booking, "id" | "createdAt">): Booking {
-  const bookings = getBookings();
-  const newBooking: Booking = {
+export function addTutorBooking(booking: Omit<TutorBooking, "id" | "status" | "createdAt">): TutorBooking {
+  const bookings = getTutorBookings();
+  const newBooking: TutorBooking = {
     ...booking,
     id: "book-" + Date.now(),
+    status: "pending",
     createdAt: new Date().toISOString(),
   };
   bookings.unshift(newBooking);
@@ -270,6 +420,33 @@ export function addBooking(booking: Omit<Booking, "id" | "createdAt">): Booking 
   return newBooking;
 }
 
+// Announcements
+export function getAnnouncements(): Announcement[] {
+  if (typeof window === "undefined") return [];
+  initializeStorage();
+  try {
+    const data = localStorage.getItem(ANNOUNCEMENTS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addAnnouncement(ann: Omit<Announcement, "id" | "createdAt">): Announcement {
+  const list = getAnnouncements();
+  const newAnn: Announcement = {
+    ...ann,
+    id: "ann-" + Date.now(),
+    createdAt: new Date().toISOString(),
+  };
+  list.unshift(newAnn);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(list));
+  }
+  return newAnn;
+}
+
+// Auth Verification
 export function verifyStudentLogin(identifier: string, pass: string): { success: boolean; student?: Student; error?: string } {
   const cleanId = identifier.trim().toLowerCase();
   const students = getStudents();
@@ -278,37 +455,45 @@ export function verifyStudentLogin(identifier: string, pass: string): { success:
   );
 
   if (student) {
+    if (student.status === "Access Denied" || student.status === "Payment Overdue") {
+      return {
+        success: false,
+        error: "Access denied due to outstanding payments. Please contact administration at moiane158@gmail.com or +27 67 148 6015 to restore your portal access.",
+      };
+    }
+
     if (!student.password || student.password === pass) {
       if (typeof window !== "undefined") {
         localStorage.setItem(CURRENT_STUDENT_KEY, JSON.stringify(student));
       }
       return { success: true, student };
     }
-    return { success: false, error: "Incorrect password. Please try again." };
+    return { success: false, error: "Incorrect password. Please verify and try again." };
   }
 
-  // Check if they are in pending registrations
   const pending = getPendingRegistrations();
-  const isPending = pending.some(
-    (p) => p.email.toLowerCase() === cleanId
-  );
-
+  const isPending = pending.some((p) => p.email.toLowerCase() === cleanId);
   if (isPending) {
     return {
       success: false,
-      error: "Your registration is still pending verification. Our staff will verify your payment and email your student number shortly.",
+      error: "Your registration is currently awaiting verification. Please check your email or contact the administration for your student credentials.",
     };
   }
 
-  return { success: false, error: "Invalid student number or email address." };
+  return { success: false, error: "No student account found with this student number or email address." };
 }
 
 export function getCurrentStudent(): Student | null {
   if (typeof window === "undefined") return null;
   try {
     const data = localStorage.getItem(CURRENT_STUDENT_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (e) {
+    if (!data) return null;
+    const stu: Student = JSON.parse(data);
+    // Refresh student record from master storage
+    const all = getStudents();
+    const fresh = all.find((s) => s.id === stu.id);
+    return fresh || stu;
+  } catch {
     return null;
   }
 }

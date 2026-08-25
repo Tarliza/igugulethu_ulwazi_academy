@@ -7,9 +7,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { getStudents, addStudentDirectly, Student } from "@/lib/student-storage";
-import { UserCheck, Users, Plus, Search, BookOpen, Mail, Phone, School, GraduationCap } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  getStudents,
+  addStudentDirectly,
+  updateStudentStatus,
+  deleteStudent,
+  addStudentGrade,
+  getStudentAverage,
+  Student,
+  ACADEMY_SUBJECTS
+} from "@/lib/student-storage";
+import {
+  Users,
+  Plus,
+  Search,
+  BookOpen,
+  Mail,
+  Phone,
+  School,
+  Award,
+  Trash2,
+  Lock,
+  Unlock,
+  CheckCircle2,
+  FileSpreadsheet
+} from "lucide-react";
 
 export const Route = createFileRoute("/staff/students")({
   component: StaffStudentsPage,
@@ -18,15 +43,14 @@ export const Route = createFileRoute("/staff/students")({
 export function StaffStudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [openModal, setOpenModal] = useState(false);
 
-  // New Student Form
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [grade, setGrade] = useState("Grade 11");
-  const [school, setSchool] = useState("");
-  const [plan, setPlan] = useState("2 Subjects");
+  // Modals
+  const [gradeModalStudent, setGradeModalStudent] = useState<Student | null>(null);
+  const [testTitle, setTestTitle] = useState("");
+  const [testSubject, setTestSubject] = useState<string>("Mathematics");
+  const [testScore, setTestScore] = useState("");
+  const [testMax, setTestMax] = useState("100");
+  const [tutorFeedback, setTutorFeedback] = useState("");
 
   const loadData = () => {
     setStudents(getStudents());
@@ -36,31 +60,39 @@ export function StaffStudentsPage() {
     loadData();
   }, []);
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleCaptureGrade = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !email) return;
+    if (!gradeModalStudent || !testTitle || !testScore) return;
 
-    addStudentDirectly({
-      fullName,
-      email,
-      phone: phone || "0000000000",
-      grade,
-      school: school || "Academy",
-      subjects: ["Mathematics", "Physical Sciences"],
-      plan,
-      amount: "R550",
-      status: "Active",
+    addStudentGrade(gradeModalStudent.id, {
+      assessment: testTitle,
+      subject: testSubject,
+      score: parseFloat(testScore) || 0,
+      maxScore: parseFloat(testMax) || 100,
+      tutorFeedback: tutorFeedback || "Solid effort. Continue practicing past exam questions.",
     });
 
-    setOpenModal(false);
-    setFullName("");
-    setEmail("");
-    setPhone("");
-    setSchool("");
+    setTestTitle("");
+    setTestScore("");
+    setTutorFeedback("");
+    setGradeModalStudent(null);
     loadData();
   };
 
-  const filteredStudents = students.filter(
+  const handleToggleStatus = (student: Student) => {
+    const newStatus = student.status === "Active" ? "Access Denied" : "Active";
+    updateStudentStatus(student.id, newStatus);
+    loadData();
+  };
+
+  const handleDelete = (studentId: string, name: string) => {
+    if (confirm(`Are you sure you want to remove ${name} from the active student roster?`)) {
+      deleteStudent(studentId);
+      loadData();
+    }
+  };
+
+  const filtered = students.filter(
     (s) =>
       s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,136 +100,194 @@ export function StaffStudentsPage() {
   );
 
   return (
-    <PortalShell role="staff">
+    <PortalShell role="staff" title="Student Management Roster">
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Student Management Roster</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Active Student Roster</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              View and manage all enrolled students, their generated student numbers, and assigned subjects.
+              Manage student accounts, capture test marks, monitor 30-day payment standing, and adjust portal access.
             </p>
           </div>
-
-          <Dialog open={openModal} onOpenChange={setOpenModal}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 shrink-0">
-                <Plus className="h-4 w-4" />
-                Add Student
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Enroll New Student</DialogTitle>
-                <DialogDescription>Directly register and activate a student account.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleAddStudent} className="space-y-4 py-2">
-                <div className="space-y-1.5">
-                  <Label>Full Name</Label>
-                  <Input placeholder="e.g. Thandeka Ndlovu" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Email Address</Label>
-                  <Input type="email" placeholder="student@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Phone Number</Label>
-                    <Input placeholder="0681234567" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Grade</Label>
-                    <Input placeholder="Grade 11" value={grade} onChange={(e) => setGrade(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>School</Label>
-                  <Input placeholder="High School Name" value={school} onChange={(e) => setSchool(e.target.value)} />
-                </div>
-                <DialogFooter className="pt-2">
-                  <Button type="submit" className="w-full">Save & Generate Student ID</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Link to="/staff">
+            <Button size="sm" className="gap-2 font-bold">
+              <Plus className="h-4 w-4" /> Enroll New Student
+            </Button>
+          </Link>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Filter */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by student number, name, or email..."
+            placeholder="Search by Student Number (STU...), name, or email..."
             className="pl-9 bg-background"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {filteredStudents.length === 0 ? (
+        {filtered.length === 0 ? (
           <Card className="text-center py-12 border-dashed">
             <CardContent className="space-y-3">
               <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                 <Users className="h-6 w-6" />
               </div>
-              <h3 className="font-semibold text-lg">No active students enrolled yet</h3>
+              <h3 className="font-semibold text-lg">No students found</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Go to the Pending Verifications page to approve registered applicants, or click &quot;Add Student&quot; above to create one.
+                Approve pending applications from the Verifications tab or enroll a student manually from the Dashboard.
               </p>
-              <div className="pt-2 flex justify-center gap-3">
-                <Link to="/staff/verifications">
-                  <Button variant="default" size="sm" className="gap-1.5">
-                    <UserCheck className="h-4 w-4" />
-                    Review Pending Verifications
-                  </Button>
-                </Link>
-              </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredStudents.map((stu) => (
-              <Card key={stu.id} className="shadow-sm border hover:border-primary/40 transition-colors">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Badge variant="outline" className="font-mono text-xs font-bold text-primary bg-primary/10 mb-1.5">
-                        {stu.studentNumber}
-                      </Badge>
-                      <CardTitle className="text-base font-bold">{stu.fullName}</CardTitle>
-                      <CardDescription className="text-xs flex items-center gap-1 mt-0.5">
-                        <Mail className="h-3 w-3" />
-                        {stu.email}
-                      </CardDescription>
-                    </div>
-                    <Badge className="bg-green-500/15 text-green-700 border-green-500/30 text-xs">
-                      {stu.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 text-xs">
-                  <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-lg">
-                    <div>
-                      <span className="text-muted-foreground">Grade:</span> <span className="font-semibold">{stu.grade}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">School:</span> <span className="font-semibold truncate block">{stu.school}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block mb-1">Subjects Enrolled:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {stu.subjects.map((sub) => (
-                        <Badge key={sub} variant="secondary" className="text-[11px] font-normal py-0">
-                          {sub}
+            {filtered.map((stu) => {
+              const avg = getStudentAverage(stu);
+              const isDenied = stu.status === "Access Denied" || stu.status === "Payment Overdue";
+
+              return (
+                <Card key={stu.id} className={`shadow-sm border transition-all ${isDenied ? "border-red-300 bg-red-50/20" : "hover:border-primary/40"}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <Badge variant="outline" className="font-mono text-xs font-bold text-primary bg-primary/10 mb-1.5">
+                          {stu.studentNumber}
                         </Badge>
-                      ))}
+                        <CardTitle className="text-base font-bold">{stu.fullName}</CardTitle>
+                        <CardDescription className="text-xs flex items-center gap-1 mt-0.5">
+                          <Mail className="h-3 w-3" /> {stu.email}
+                        </CardDescription>
+                      </div>
+                      <Badge className={isDenied ? "bg-red-500/15 text-red-700 border-red-500/30 text-xs" : "bg-green-500/15 text-green-700 border-green-500/30 text-xs"}>
+                        {stu.status}
+                      </Badge>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-xs">
+                    <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-lg">
+                      <div>
+                        <span className="text-muted-foreground">Grade:</span> <span className="font-semibold">{stu.grade}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Average:</span>{" "}
+                        <span className={`font-bold ${avg > 0 ? "text-green-600" : "text-muted-foreground"}`}>{avg > 0 ? `${avg}%` : "No marks yet"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Plan:</span> <span className="font-semibold">{stu.plan}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Fee:</span> <span className="font-semibold text-primary">{stu.amount}/mo</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-muted-foreground block mb-1">Enrolled Subjects:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {stu.subjects.map((sub) => (
+                          <Badge key={sub} variant="secondary" className="text-[11px] font-normal py-0">
+                            {sub}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="pt-2 border-t flex flex-col gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setGradeModalStudent(stu);
+                          setTestSubject(stu.subjects[0] || "Mathematics");
+                        }}
+                        className="w-full justify-center gap-1.5 text-xs font-bold"
+                      >
+                        <Award className="h-3.5 w-3.5 text-primary" /> Capture Test Marks
+                      </Button>
+
+                      <div className="flex gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isDenied ? "default" : "secondary"}
+                          onClick={() => handleToggleStatus(stu)}
+                          className="flex-1 text-[11px] font-semibold gap-1"
+                        >
+                          {isDenied ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          {isDenied ? "Grant Access" : "Restrict (Overdue)"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(stu.id, stu.fullName)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 text-[11px] p-2"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
+
+        {/* Capture Test Marks Modal */}
+        <Dialog open={!!gradeModalStudent} onOpenChange={(open) => !open && setGradeModalStudent(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Capture Student Test Marks</DialogTitle>
+              <DialogDescription className="text-xs">
+                Enter test score and tutor feedback for <strong>{gradeModalStudent?.fullName}</strong> ({gradeModalStudent?.studentNumber}).
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleCaptureGrade} className="space-y-3.5 py-2 text-xs">
+              <div className="space-y-1">
+                <Label>Subject *</Label>
+                <Select value={testSubject} onValueChange={setTestSubject}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {gradeModalStudent?.subjects.map((sub) => (
+                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Assessment Name *</Label>
+                <Input placeholder="e.g. Term 1 Control Test or Revision Quiz 2" value={testTitle} onChange={(e) => setTestTitle(e.target.value)} required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label>Student Mark (Score) *</Label>
+                  <Input type="number" placeholder="e.g. 78" value={testScore} onChange={(e) => setTestScore(e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Total Out Of *</Label>
+                  <Input type="number" placeholder="100" value={testMax} onChange={(e) => setTestMax(e.target.value)} required />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Tutor Feedback / Comments</Label>
+                <Textarea placeholder="e.g. Great grasp of Calculus fundamentals. Revise Geometry proofs." value={tutorFeedback} onChange={(e) => setTutorFeedback(e.target.value)} rows={3} />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="submit" className="w-full font-bold">Save & Publish to Student Portal</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </PortalShell>
   );
 }
+
+export default StaffStudentsPage;

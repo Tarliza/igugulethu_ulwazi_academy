@@ -1,29 +1,29 @@
-import logo from "@/assets/logo.jpeg";
 
-interface LogoProps {
-  variant?: "dark" | "light";
-  className?: string;
-}
+import React from "react";
+import { Link } from "@tanstack/react-router";
 
-export function Logo({ variant = "dark", className = "" }: LogoProps) {
-  const textColor = variant === "light" ? "text-white" : "text-brand-navy";
+export function Logo({ className = "h-9 w-auto", showText = true }: { className?: string; showText?: boolean }) {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <Link to="/" className="flex items-center gap-2.5 group">
       <img
-        src={logo}
-        alt="Igugulethu Ulwazi Academy"
-        className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-black/10"
-        width={44}
-        height={44}
+        src="/logo.jpeg"
+        alt="Igugulethu Ulwazi Academy Logo"
+        className={`object-contain rounded-md ${className}`}
+        onError={(e) => {
+          // Fallback if image path fails
+          e.currentTarget.style.display = "none";
+        }}
       />
-      <div className="leading-tight">
-        <div className={`font-display text-sm font-extrabold tracking-wide ${textColor}`}>
-          IGUGULETHU ULWAZI
+      {showText && (
+        <div className="flex flex-col text-left">
+          <span className="font-extrabold text-sm sm:text-base tracking-tight text-foreground group-hover:text-primary transition-colors">
+            IGUGULETHU ULWAZI
+          </span>
+          <span className="text-[10px] tracking-widest font-bold text-primary uppercase">
+            ACADEMY
+          </span>
         </div>
-        <div className="text-[11px] font-bold tracking-[0.2em] text-brand-amber">
-          ACADEMY
-        </div>
-      </div>
-    </div>
+      )}
+    </Link>
   );
 }
