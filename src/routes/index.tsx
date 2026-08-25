@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { SiteHeader } from '../components/landing/SiteHeader';
 import { SiteFooter } from '../components/landing/SiteFooter';
 import { Button } from '../components/ui/button';
@@ -14,6 +14,10 @@ import {
   Calendar,
   CheckCircle2
 } from 'lucide-react';
+
+export const Route = createFileRoute('/')({
+  component: LandingPage,
+});
 
 export function LandingPage() {
   return (
