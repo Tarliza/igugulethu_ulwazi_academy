@@ -1,112 +1,123 @@
+
+import React, { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { GraduationCap, Mail } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { GraduationCap, Mail, AlertCircle, CheckCircle2, Lock, ArrowRight } from "lucide-react";
+import { verifyStudentLogin } from "@/lib/student-storage";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
-import React, { useState } from "react";
-import { supabase } from "@/integrations/client";
 
 export const Route = createFileRoute("/student-login")({
-  head: () => ({
-    meta: [
-      { title: "Student Portal | Igugulethu Ulwazi Academy" },
-      { name: "description", content: "Login to access your learning materials, messages, and class bookings." },
-      { property: "og:title", content: "Student Portal | Igugulethu Ulwazi Academy" },
-      { property: "og:description", content: "Login to access your learning materials, messages, and class bookings." },
-      { property: "og:image", content: "/logo.jpeg" },
-      { property: "og:type", content: "website" },
-    ],
-  }),
-  component: StudentLogin,
+  component: StudentLoginPage,
 });
 
-function StudentLogin() {
-  const [studentNumber, setStudentNumber] = useState("");
+export function StudentLoginPage() {
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const studentNumberValue = studentNumber.trim();
-    const passwordValue = password;
+    setError(null);
+    setLoading(true);
 
-    const email = `${studentNumberValue.toLowerCase()}@student.igugulethu.local`;
+    setTimeout(() => {
+      const result = verifyStudentLogin(identifier, password);
+      setLoading(false);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: passwordValue,
-    });
-
-    if (error) {
-      alert("Invalid student number or password.");
-    } else {
-      navigate({ to: "/student" });
-    }
+      if (result.success) {
+        navigate({ to: "/student" });
+      } else {
+        setError(result.error || "Invalid student credentials.");
+      }
+    }, 400);
   };
 
   return (
-    <div className="min-h-screen bg-brand-cream">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
-      <section className="mx-auto max-w-md px-6 py-16">
-        <div className="rounded-3xl bg-card p-8 shadow-card">
-          <div className="flex flex-col items-center text-center">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-navy text-brand-amber">
-              <GraduationCap className="h-7 w-7" />
+
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2">
+              <GraduationCap className="h-6 w-6" />
             </div>
-            <h1 className="mt-4 font-display text-2xl font-extrabold text-brand-navy">
-              Student Login
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Welcome back — let's keep learning.
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Student Login</h1>
+            <p className="text-sm text-muted-foreground">Welcome back — sign in to access your modules & portal.</p>
           </div>
 
-          <div className="mt-6 flex gap-3 rounded-2xl border border-brand-amber/40 bg-brand-cream/60 p-4 text-left">
-            <Mail className="mt-0.5 h-5 w-5 shrink-0 text-brand-navy" />
-            <div className="text-xs text-brand-navy/80">
-              <p className="font-semibold text-brand-navy">First time signing in?</p>
-              <p className="mt-1">
-                Your student number and password are emailed to you by the Igugulethu team once your
-                proof of payment has been verified. Check your inbox (and spam folder) for your login
-                credentials.
-              </p>
-            </div>
-          </div>
+          <Card className="shadow-lg border">
+            <CardHeader className="pb-4">
+              <div className="p-3 bg-muted/60 rounded-lg text-xs space-y-1 text-muted-foreground border">
+                <p className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 text-primary" /> First time signing in?
+                </p>
+                <p>
+                  You can sign in with your <strong>Student Number</strong> or your <strong>registered Email Address</strong> once approved.
+                </p>
+              </div>
+            </CardHeader>
 
-          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-brand-navy">Student number</label>
-              <input
-                type="text"
-                required
-                value={studentNumber}
-                onChange={(e) => setStudentNumber(e.target.value)}
-                placeholder="RA-2026-0001"
-                className="w-full rounded-xl border bg-background px-4 py-3 text-sm outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-brand-navy">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border bg-background px-4 py-3 text-sm outline-none"
-              />
-            </div>
-            <button className="w-full rounded-full bg-brand-amber px-6 py-3 text-sm font-bold text-brand-navy shadow-soft transition hover:brightness-105">
-              Sign in
-            </button>
-          </form>
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-4">
+                {error && (
+                  <Alert variant="destructive" className="py-2.5">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">{error}</AlertDescription>
+                  </Alert>
+                )}
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            New here?{" "}
-            <Link to="/subscription" className="font-semibold text-brand-navy hover:underline">
-              Choose a plan to sign up
-            </Link>
-          </p>
+                <div className="space-y-2">
+                  <Label htmlFor="identifier">Student Number or Email Address</Label>
+                  <Input
+                    id="identifier"
+                    placeholder="e.g. STU2026001 or email@domain.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </CardContent>
+
+              <CardFooter className="flex flex-col gap-3 pt-2">
+                <Button type="submit" className="w-full gap-2" disabled={loading}>
+                  {loading ? "Signing in..." : "Sign In"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+
+                <div className="text-center text-xs text-muted-foreground pt-2">
+                  New here?{" "}
+                  <Link to="/subscription" className="text-primary font-semibold hover:underline">
+                    Choose a plan to sign up
+                  </Link>
+                </div>
+              </CardFooter>
+            </form>
+          </Card>
         </div>
-      </section>
+      </div>
+
       <SiteFooter />
     </div>
   );
