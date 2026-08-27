@@ -100,7 +100,9 @@ export function StaffDashboardPage() {
 
   const handleAddStudent = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stuFirstName || !stuEmail) return;
+    if (!stuFirstName || !stuLastName || !stuEmail || stuPassword.length < 8) {
+      return;
+    }
 
     const newStu = addStudentDirectly({
       fullName: `${stuFirstName} ${stuLastName}`.trim(),
@@ -111,7 +113,7 @@ export function StaffDashboardPage() {
       subjects: stuPlan === "1 Subject" ? ["Mathematics"] : stuPlan === "3 Subjects" ? ["Mathematics", "Physical Sciences", "Life Science"] : ["Mathematics", "Physical Sciences"],
       plan: stuPlan,
       amount: stuPlan === "1 Subject" ? "R300" : stuPlan === "3 Subjects" ? "R750" : "R550",
-      password: stuPassword || "password123",
+      password: stuPassword,
       status: "Active",
     });
 
@@ -368,7 +370,7 @@ export function StaffDashboardPage() {
                       </div>
                       <div className="space-y-1">
                         <Label>Temporary Password</Label>
-                        <Input type="password" value={stuPassword} onChange={(e) => setStuPassword(e.target.value)} placeholder="Default: password123" />
+                        <Input type="password" value={stuPassword} onChange={(e) => setStuPassword(e.target.value)} placeholder="Minimum 8 characters" />
                       </div>
                       <DialogFooter className="pt-2">
                         <Button type="submit" className="w-full font-bold">Generate Student Number & Activate</Button>

@@ -96,6 +96,11 @@ export function RegisterPage() {
       return;
     }
 
+    if (password.length < 8) {
+      setValidationError("Create a password with at least 8 characters.");
+      return;
+    }
+
     addRegistration({
       fullName: `${firstName} ${lastName}`.trim(),
       email: email.trim(),
@@ -105,7 +110,7 @@ export function RegisterPage() {
       subjects,
       plan: planName,
       amount: planAmount,
-      password: password || "password123",
+      password: undefined,
       proofOfPaymentName: fileName,
     });
 

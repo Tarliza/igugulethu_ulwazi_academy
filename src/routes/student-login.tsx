@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { GraduationCap, Mail, AlertCircle, Eye, EyeOff, ArrowRight, HelpCircle, Phone } from "lucide-react";
-import { verifyStudentLogin } from "@/lib/student-storage";
+import { signInStudent, requestPasswordReset } from "@/lib/auth";
+import { supabase } from "@/integrations/client";
+import { getStudentByUserId, setCurrentStudentSnapshot } from "@/lib/student-session";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 
@@ -25,7 +27,7 @@ export function StudentLoginPage() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -37,16 +39,29 @@ export function StudentLoginPage() {
     setIdentifier("");
     setPassword("");
 
-    setTimeout(() => {
-      const result = verifyStudentLogin(enteredId, enteredPass);
-      setLoading(false);
+    const { data, error: authError } = await signInStudent(enteredId, enteredPass);
+    setLoading(false);
 
-      if (result.success) {
-        navigate({ to: "/student" });
-      } else {
-        setError(result.error || "Invalid student credentials.");
-      }
-    }, 400);
+    if (authError || !data.user) {
+      setError("Invalid student credentials.");
+      return;
+    }
+
+    const { student, error: studentError } = await getStudentByUserId(data.user.id);
+    if (studentError || !student) {
+      await supabase.auth.signOut();
+      setError("Your student profile is not active yet. Please contact the academy administration.");
+      return;
+    }
+
+    if (student.status !== "Active") {
+      await supabase.auth.signOut();
+      setError("Access denied due to outstanding payments or inactive account status.");
+      return;
+    }
+
+    setCurrentStudentSnapshot(student);
+    navigate({ to: "/student" });
   };
 
   return (
@@ -168,7 +183,21 @@ export function StudentLoginPage() {
               <Phone className="h-3.5 w-3.5 text-primary" /> +27 67 148 6015 (WhatsApp)
             </p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!identifier.includes("@")) {
+                  setError("Enter your email address above, then use Forgot password again.");
+                  return;
+                }
+                const { error } = await requestPasswordReset(identifier);
+                if (error) setError("We could not send the reset email. Please contact administration.");
+                else setError("Password reset instructions have been sent to your email if the account exists.");
+                setShowForgotModal(false);
+              }}
+              className="w-full"
+            >Send Reset Email</Button>
             <Button onClick={() => setShowForgotModal(false)} className="w-full">Close</Button>
           </DialogFooter>
         </DialogContent>

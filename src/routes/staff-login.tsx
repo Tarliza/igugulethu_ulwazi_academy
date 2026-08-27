@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShieldCheck, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
+import { signInStaff } from "@/lib/auth";
 
 export const Route = createFileRoute("/staff-login")({
   component: StaffLoginPage,
@@ -22,7 +23,7 @@ export function StaffLoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -34,20 +35,15 @@ export function StaffLoginPage() {
     setEmail("");
     setPassword("");
 
-    setTimeout(() => {
-      setLoading(false);
-      // Verify staff credentials (owner/admin/tutor)
-      if (
-        enteredEmail === "moiane158@gmail.com" ||
-        enteredEmail.endsWith("@academy.co.za") ||
-        enteredEmail === "admin@academy.co.za" ||
-        enteredEmail === "kuhlengam65@gmail.com"
-      ) {
-        navigate({ to: "/staff" });
-      } else {
-        setError("Invalid staff login credentials. If you are a new tutor, ensure your account has been added to Supabase.");
-      }
-    }, 400);
+    const { error: authError } = await signInStaff(enteredEmail, enteredPass);
+    setLoading(false);
+
+    if (authError) {
+      setError("Invalid staff login credentials.");
+      return;
+    }
+
+    navigate({ to: "/staff" });
   };
 
   return (
