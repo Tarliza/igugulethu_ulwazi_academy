@@ -32,7 +32,6 @@ export interface Registration {
   subjects: string[];
   plan: "1 Subject" | "2 Subjects" | "3 Subjects";
   amount: string;
-  password?: string;
   proofOfPaymentName?: string;
   status: "pending" | "approved" | "rejected";
   studentNumber?: string;
@@ -50,7 +49,6 @@ export interface Student {
   subjects: string[];
   plan: "1 Subject" | "2 Subjects" | "3 Subjects";
   amount: string;
-  password?: string;
   status: "Active" | "Access Denied" | "Payment Overdue";
   enrolledAt: string;
   grades: StudentGrade[];
@@ -110,63 +108,21 @@ const CURRENT_STUDENT_KEY = "igugulethu_active_student_v2";
 function initializeStorage() {
   if (typeof window === "undefined") return;
 
-  if (!localStorage.getItem(REGISTRATIONS_KEY)) {
-    const initialRegs: Registration[] = [
-      {
-        id: "reg-1",
-        fullName: "Daniel Moiane",
-        email: "moiane158@gmail.com",
-        phone: "+27 67 148 6015",
-        grade: "Grade 12",
-        school: "Johannesburg South High",
-        subjects: ["Mathematics", "Physical Sciences"],
-        plan: "2 Subjects",
-        amount: "R550",
-        password: "password123",
-        proofOfPaymentName: "Capitec_Proof_Daniel.pdf",
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    localStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(initialRegs));
-  }
+  // Production safeguard: this legacy adapter must never seed demo students,
+  // registrations, credentials, marks, or timetable data. The production data
+  // source is Supabase. These empty collections only preserve compatibility
+  // for legacy UI code until each feature is migrated.
+  const emptyCollections: Array<[string, unknown[]]> = [
+    [REGISTRATIONS_KEY, []],
+    [STUDENTS_KEY, []],
+    [RESOURCES_KEY, []],
+    [SCHEDULE_KEY, []],
+    [BOOKINGS_KEY, []],
+    [ANNOUNCEMENTS_KEY, []],
+  ];
 
-  if (!localStorage.getItem(STUDENTS_KEY)) {
-    const initialStudents: Student[] = [
-      {
-        id: "stu-1",
-        studentNumber: "STU2026001",
-        fullName: "Kuhle Ngam",
-        email: "kuhlengam65@gmail.com",
-        phone: "0687921613",
-        grade: "Grade 11",
-        school: "Kenilworth High",
-        subjects: ["Mathematics", "Life Science"],
-        plan: "2 Subjects",
-        amount: "R550",
-        password: "password123",
-        status: "Active",
-        enrolledAt: new Date().toISOString(),
-        grades: [],
-      },
-    ];
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(initialStudents));
-  }
-
-  if (!localStorage.getItem(RESOURCES_KEY)) {
-    localStorage.setItem(RESOURCES_KEY, JSON.stringify([]));
-  }
-
-  if (!localStorage.getItem(SCHEDULE_KEY)) {
-    localStorage.setItem(SCHEDULE_KEY, JSON.stringify([]));
-  }
-
-  if (!localStorage.getItem(BOOKINGS_KEY)) {
-    localStorage.setItem(BOOKINGS_KEY, JSON.stringify([]));
-  }
-
-  if (!localStorage.getItem(ANNOUNCEMENTS_KEY)) {
-    localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify([]));
+  for (const [key, value] of emptyCollections) {
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value));
   }
 }
 
@@ -226,7 +182,6 @@ export function approveRegistration(registrationId: string): { student: Student;
     subjects: reg.subjects,
     plan: reg.plan,
     amount: reg.amount,
-    password: reg.password || "password123",
     status: "Active",
     enrolledAt: new Date().toISOString(),
     grades: [],

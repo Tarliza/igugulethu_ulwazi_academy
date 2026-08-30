@@ -3,8 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 // Initialize the Supabase Admin client securely
 // This bypasses normal security policies, so it MUST ONLY run on the server
 const getAdminClient = () => {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
   if (!serviceKey) throw new Error("Missing Supabase Service Role Key");
   
@@ -81,7 +81,7 @@ export async function activateStudent(registrationId: string) {
     if (updateError) throw updateError;
 
     // 6. Send the Physical Email
-    const resendKey = import.meta.env.VITE_RESEND_API_KEY;
+    const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -134,7 +134,7 @@ export async function sendPaymentReminders(
   messageTemplate: string,
 ) {
   try {
-    const resendKey = import.meta.env.VITE_RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
+    const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) throw new Error("Missing Resend API Key");
 
     for (const student of recipients) {
