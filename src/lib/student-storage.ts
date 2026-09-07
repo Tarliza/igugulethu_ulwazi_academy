@@ -173,8 +173,8 @@ function mapStudent(row: any, grades: StudentGrade[] = []): Student {
   };
 }
 
-async function hydrate() {
-  if (typeof window === "undefined" || hydrationStarted) return;
+async function hydrate(force = false) {
+  if (typeof window === "undefined" || (hydrationStarted && !force)) return;
   hydrationStarted = true;
 
   try {
@@ -375,7 +375,9 @@ export async function addStudentDirectly(student: Omit<Student, "id" | "studentN
     throw new Error(data?.error ?? error?.message ?? "Student activation failed");
   }
 
-  await hydrate();
+  // The staff dashboard has already populated its cache by the time this action runs.
+  // Re-fetch so the account just created by the Edge Function is visible before reporting success.
+  await hydrate(true);
   const created = studentsCache.find((s) => s.studentNumber === data.studentNumber) ?? null;
   if (!created) throw new Error("Student account was created but could not be loaded");
   return created;
