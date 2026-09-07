@@ -344,10 +344,41 @@ export async function rejectRegistration(registrationId: string) {
 export function getStudents(): Student[] { ensureHydrated(); return studentsCache; }
 
 export async function addStudentDirectly(student: Omit<Student, "id" | "studentNumber" | "enrolledAt" | "grades">) {
-  const { data, error } = await supabase.functions.invoke("create-student", { body: student });
-  if (error || !data?.success) throw new Error(data?.error ?? error?.message ?? "Student creation failed");
+  const registrationId = uuid();
+  const [firstName, ...lastNameParts] = student.fullName.trim().split(/\s+/);
+  const lastName = lastNameParts.join(" ") || "-";
+
+  const { error: registrationError } = await db.from("pending_registrations").insert({
+    id: registrationId,
+    first_name: firstName || student.fullName.trim(),
+    last_name: lastName,
+    email: student.email.trim().toLowerCase(),
+    phone: student.phone?.trim() || null,
+    grade: student.grade.trim(),
+    school: student.school.trim(),
+    subjects: student.subjects,
+    plan: student.plan,
+    amount: student.amount,
+    status: "pending",
+  });
+
+  if (registrationError) {
+    throw new Error(registrationError.message);
+  }
+
+  const { data, error } = await supabase.functions.invoke("activate-student", {
+    body: { registrationId },
+  });
+
+  if (error || !data?.success) {
+    await db.from("pending_registrations").delete().eq("id", registrationId);
+    throw new Error(data?.error ?? error?.message ?? "Student activation failed");
+  }
+
   await hydrate();
-  return studentsCache.find((s) => s.studentNumber === data.studentNumber) ?? null;
+  const created = studentsCache.find((s) => s.studentNumber === data.studentNumber) ?? null;
+  if (!created) throw new Error("Student account was created but could not be loaded");
+  return created;
 }
 
 export async function updateStudentStatus(studentId: string, status: StudentStatus) {
