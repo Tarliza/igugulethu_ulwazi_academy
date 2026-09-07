@@ -22,7 +22,6 @@ import {
   Registration,
   Student,
   ACADEMY_SUBJECTS,
-  AcademySubject
 } from "@/lib/student-storage";
 import {
   Users,
@@ -35,9 +34,7 @@ import {
   UserCheck,
   Calendar,
   Video,
-  ShieldCheck,
   CheckCircle2,
-  AlertTriangle
 } from "lucide-react";
 
 export const Route = createFileRoute("/staff/")({
@@ -51,19 +48,18 @@ export function StaffDashboardPage() {
   const [sessionCount, setSessionCount] = useState(0);
   const [bookingRequestsCount, setBookingRequestsCount] = useState(0);
 
-  // Quick Action Dialogs
   const [openStudentModal, setOpenStudentModal] = useState(false);
   const [openResourceModal, setOpenResourceModal] = useState(false);
   const [openScheduleModal, setOpenScheduleModal] = useState(false);
   const [generatedStudentInfo, setGeneratedStudentInfo] = useState<{ student: Student; studentNumber: string } | null>(null);
+  const [studentActionError, setStudentActionError] = useState<string | null>(null);
+  const [studentActionBusy, setStudentActionBusy] = useState(false);
 
-  // Resource Form
   const [resTitle, setResTitle] = useState("");
   const [resSubject, setResSubject] = useState<string>("Mathematics");
   const [resDesc, setResDesc] = useState("");
   const [resFileName, setResFileName] = useState("");
 
-  // Student Form (Same fields as registration)
   const [stuFirstName, setStuFirstName] = useState("");
   const [stuLastName, setStuLastName] = useState("");
   const [stuEmail, setStuEmail] = useState("");
@@ -71,9 +67,7 @@ export function StaffDashboardPage() {
   const [stuGrade, setStuGrade] = useState("Grade 11");
   const [stuSchool, setStuSchool] = useState("");
   const [stuPlan, setStuPlan] = useState<"1 Subject" | "2 Subjects" | "3 Subjects">("2 Subjects");
-  const [stuPassword, setStuPassword] = useState("");
 
-  // Schedule Session Form
   const [sessionTitle, setSessionTitle] = useState("");
   const [sessionSubject, setSessionSubject] = useState<string>("Mathematics");
   const [tutorName, setTutorName] = useState("Mr. Moiane");
@@ -98,33 +92,44 @@ export function StaffDashboardPage() {
     loadDashboardData();
   }, []);
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stuFirstName || !stuLastName || !stuEmail || stuPassword.length < 8) {
+    setStudentActionError(null);
+    if (!stuFirstName || !stuLastName || !stuEmail) {
+      setStudentActionError("First name, last name and email are required.");
       return;
     }
 
-    const newStu = addStudentDirectly({
-      fullName: `${stuFirstName} ${stuLastName}`.trim(),
-      email: stuEmail.trim(),
-      phone: stuPhone.trim() || "+27 00 000 0000",
-      grade: stuGrade,
-      school: stuSchool.trim() || "Academy",
-      subjects: stuPlan === "1 Subject" ? ["Mathematics"] : stuPlan === "3 Subjects" ? ["Mathematics", "Physical Sciences", "Life Science"] : ["Mathematics", "Physical Sciences"],
-      plan: stuPlan,
-      amount: stuPlan === "1 Subject" ? "R300" : stuPlan === "3 Subjects" ? "R750" : "R550",
-      password: stuPassword,
-      status: "Active",
-    });
+    setStudentActionBusy(true);
+    try {
+      const newStu = await addStudentDirectly({
+        fullName: `${stuFirstName} ${stuLastName}`.trim(),
+        email: stuEmail.trim(),
+        phone: stuPhone.trim() || "+27 00 000 0000",
+        grade: stuGrade,
+        school: stuSchool.trim() || "Academy",
+        subjects: stuPlan === "1 Subject" ? ["Mathematics"] : stuPlan === "3 Subjects" ? ["Mathematics", "Physical Sciences", "Life Science"] : ["Mathematics", "Physical Sciences"],
+        plan: stuPlan,
+        amount: stuPlan === "1 Subject" ? "R300" : stuPlan === "3 Subjects" ? "R750" : "R550",
+        status: "Active",
+      });
 
-    setGeneratedStudentInfo({ student: newStu, studentNumber: newStu.studentNumber });
-    setStuFirstName("");
-    setStuLastName("");
-    setStuEmail("");
-    setStuPhone("");
-    setStuSchool("");
-    setStuPassword("");
-    loadDashboardData();
+      if (!newStu) {
+        throw new Error("The student account was not created. Please try again.");
+      }
+
+      setGeneratedStudentInfo({ student: newStu, studentNumber: newStu.studentNumber });
+      setStuFirstName("");
+      setStuLastName("");
+      setStuEmail("");
+      setStuPhone("");
+      setStuSchool("");
+      loadDashboardData();
+    } catch (error) {
+      setStudentActionError(error instanceof Error ? error.message : "Student activation failed.");
+    } finally {
+      setStudentActionBusy(false);
+    }
   };
 
   const handleUploadResource = (e: React.FormEvent) => {
@@ -167,7 +172,6 @@ export function StaffDashboardPage() {
     loadDashboardData();
   };
 
-  // Calculate overdue/restricted accounts
   const restrictedStudents = students.filter((s) => s.status === "Access Denied" || s.status === "Payment Overdue");
   const totalOverdueZAR = restrictedStudents.reduce((sum, s) => {
     const num = parseInt(s.amount.replace(/\D/g, ""), 10) || 550;
@@ -177,7 +181,6 @@ export function StaffDashboardPage() {
   return (
     <PortalShell role="staff" title="Staff Overview Dashboard">
       <div className="space-y-8 max-w-6xl mx-auto">
-        {/* Welcome Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Staff Operations Center</h1>
@@ -193,7 +196,6 @@ export function StaffDashboardPage() {
           </Link>
         </div>
 
-        {/* 4 Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card className="shadow-sm border">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -242,9 +244,7 @@ export function StaffDashboardPage() {
           </Card>
         </div>
 
-        {/* 2-Column Section: Recent Registration & Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Pending Applications Queue */}
           <Card className="lg:col-span-2 shadow-sm border">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <div>
@@ -289,15 +289,13 @@ export function StaffDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions Panel */}
           <Card className="shadow-sm border">
             <CardHeader>
               <CardTitle className="text-lg font-bold">Staff Quick Actions</CardTitle>
               <CardDescription className="text-xs">Direct actions to manage learners and classes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Enroll New Student Modal */}
-              <Dialog open={openStudentModal} onOpenChange={(val) => { setOpenStudentModal(val); if (!val) setGeneratedStudentInfo(null); }}>
+              <Dialog open={openStudentModal} onOpenChange={(val) => { setOpenStudentModal(val); if (!val) { setGeneratedStudentInfo(null); setStudentActionError(null); } }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="w-full justify-start gap-2.5 h-11 text-xs font-bold hover:border-primary">
                     <Plus className="h-4 w-4 text-primary" />
@@ -308,7 +306,7 @@ export function StaffDashboardPage() {
                   <DialogHeader>
                     <DialogTitle>Enroll New Student Manually</DialogTitle>
                     <DialogDescription className="text-xs">
-                      Enrolls student with instant account activation (no proof of payment required).
+                      Creates the Supabase Auth account and student record through the staff-only activation flow. The login password is generated securely and sent by email when Resend is configured.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -329,6 +327,11 @@ export function StaffDashboardPage() {
                     </div>
                   ) : (
                     <form onSubmit={handleAddStudent} className="space-y-3 py-2 text-xs">
+                      {studentActionError && (
+                        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                          {studentActionError}
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-2.5">
                         <div className="space-y-1">
                           <Label>First Name *</Label>
@@ -368,19 +371,16 @@ export function StaffDashboardPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-1">
-                        <Label>Temporary Password</Label>
-                        <Input type="password" value={stuPassword} onChange={(e) => setStuPassword(e.target.value)} placeholder="Minimum 8 characters" />
-                      </div>
                       <DialogFooter className="pt-2">
-                        <Button type="submit" className="w-full font-bold">Generate Student Number & Activate</Button>
+                        <Button type="submit" className="w-full font-bold" disabled={studentActionBusy}>
+                          {studentActionBusy ? "Creating secure account…" : "Generate Student Number & Activate"}
+                        </Button>
                       </DialogFooter>
                     </form>
                   )}
                 </DialogContent>
               </Dialog>
 
-              {/* Upload Resource Modal (Subject Dropdown) */}
               <Dialog open={openResourceModal} onOpenChange={setOpenResourceModal}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="w-full justify-start gap-2.5 h-11 text-xs font-bold hover:border-primary">
@@ -426,7 +426,6 @@ export function StaffDashboardPage() {
                 </DialogContent>
               </Dialog>
 
-              {/* Schedule Calendar Session Modal */}
               <Dialog open={openScheduleModal} onOpenChange={setOpenScheduleModal}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="w-full justify-start gap-2.5 h-11 text-xs font-bold hover:border-primary">
