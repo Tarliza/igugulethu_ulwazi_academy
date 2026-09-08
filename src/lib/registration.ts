@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/client";
 import { ACADEMY_SUBJECTS, Plan } from "@/lib/student-storage";
 
+export { ACADEMY_SUBJECTS } from "@/lib/student-storage";
+
 export interface SubmitRegistrationInput {
   firstName: string;
   lastName: string;
