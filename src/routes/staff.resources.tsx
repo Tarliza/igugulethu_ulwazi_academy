@@ -59,9 +59,13 @@ export function StaffResourcesPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteResource(id);
-    loadData();
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteResource(id);
+      loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not delete the learning resource.");
+    }
   };
 
   return (
