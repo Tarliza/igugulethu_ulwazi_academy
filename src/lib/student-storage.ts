@@ -422,19 +422,81 @@ export function getResourcesForStudent(studentSubjects: string[]): Resource[] {
   ensureHydrated();
   return resourcesCache.filter((r) => studentSubjects.includes(r.subject) || r.subject === "All Subjects");
 }
-export function addResource(res: Omit<Resource, "id" | "uploadedAt">): Resource {
-  const resource: Resource = { ...res, id: uuid(), uploadedAt: new Date().toISOString() };
+export async function addResource(
+  res: Omit<Resource, "id" | "uploadedAt"> & { file: File },
+): Promise<Resource> {
+  const { file } = res;
+  if (!file || file.size === 0) throw new Error("Please choose a learning resource file.");
+  if (file.size > 25 * 1024 * 1024) throw new Error("Learning resources must be 25 MB or smaller.");
+
+  const allowedTypes = new Set([
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+  ]);
+  if (!allowedTypes.has(file.type)) {
+    throw new Error("Only PDF, DOC, and DOCX learning resources are accepted.");
+  }
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "resource";
+  const storagePath = `resources/${uuid()}/${safeName}`;
+
+  const { error: uploadError } = await db.storage
+    .from("academy-learning-resources")
+    .upload(storagePath, file, { contentType: file.type, cacheControl: "3600", upsert: false });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data, error } = await db
+    .from("resources")
+    .insert({
+      title: res.title,
+      subject: res.subject,
+      description: res.description,
+      file_path: storagePath,
+      uploaded_by: res.uploadedBy,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    await db.storage.from("academy-learning-resources").remove([storagePath]);
+    throw new Error(error?.message ?? "Could not publish the learning resource.");
+  }
+
+  const resource: Resource = {
+    id: data.id,
+    title: data.title,
+    subject: data.subject ?? "All Subjects",
+    description: data.description ?? "",
+    fileName: safeName,
+    filePath: data.file_path,
+    uploadedBy: data.uploaded_by ?? res.uploadedBy,
+    uploadedAt: data.created_at,
+  };
   resourcesCache.unshift(resource);
-  void db.from("resources").insert({ id: resource.id, title: resource.title, subject: resource.subject, description: resource.description, file_path: resource.filePath ?? resource.fileName }).then(({ error }: any) => {
-    if (error) console.error("[Academy] Resource insert failed", error);
-    else emitDataChanged();
-  });
   emitDataChanged();
   return resource;
 }
+
+export async function getResourceDownloadUrl(resource: Resource): Promise<string> {
+  if (!resource.filePath) throw new Error("This resource does not have a stored file.");
+  const { data, error } = await db.storage
+    .from("academy-learning-resources")
+    .createSignedUrl(resource.filePath, 300);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? "Could not create a secure download link.");
+  return data.signedUrl;
+}
+
 export async function deleteResource(id: string) {
+  const resource = resourcesCache.find((r) => r.id === id);
   const { error } = await db.from("resources").delete().eq("id", id);
   if (error) throw error;
+
+  if (resource?.filePath) {
+    const { error: storageError } = await db.storage.from("academy-learning-resources").remove([resource.filePath]);
+    if (storageError) console.error("[Academy] Resource file cleanup failed", storageError);
+  }
+
   const index = resourcesCache.findIndex((r) => r.id === id);
   if (index >= 0) resourcesCache.splice(index, 1);
   emitDataChanged();
