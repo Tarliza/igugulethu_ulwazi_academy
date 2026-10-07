@@ -24,6 +24,9 @@ export function StaffResourcesPage() {
   const [subject, setSubject] = useState<string>("Mathematics");
   const [description, setDescription] = useState("");
   const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const loadData = () => {
     setResources(getResources());
@@ -33,28 +36,36 @@ export function StaffResourcesPage() {
     loadData();
   }, []);
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) return;
-
-    addResource({
-      title,
-      subject,
-      description,
-      fileName: fileName || (title.toLowerCase().replace(/\s+/g, "_") + ".pdf"),
-      uploadedBy: "Academy Staff",
-    });
-
-    setTitle("");
-    setDescription("");
-    setFileName("");
-    setOpenModal(false);
-    loadData();
+    if (!title || !file) {
+      setUploadError("Choose a PDF, DOC, or DOCX file before publishing.");
+      return;
+    }
+    setUploadError("");
+    setUploading(true);
+    try {
+      await addResource({ title, subject, description, fileName: file.name, uploadedBy: "Academy Staff", file });
+      setTitle("");
+      setDescription("");
+      setFileName("");
+      setFile(null);
+      setOpenModal(false);
+      loadData();
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Could not upload the learning resource.");
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    deleteResource(id);
-    loadData();
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteResource(id);
+      loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not delete the learning resource.");
+    }
   };
 
   return (
@@ -82,6 +93,7 @@ export function StaffResourcesPage() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleUpload} className="space-y-3 py-2 text-xs">
+                {uploadError && <p className="text-xs font-semibold text-destructive">{uploadError}</p>}
                 <div className="space-y-1">
                   <Label>Subject (Select from offered curriculum) *</Label>
                   <Select value={subject} onValueChange={setSubject}>
@@ -103,10 +115,10 @@ export function StaffResourcesPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Upload File (PDF or Document)</Label>
-                  <Input type="file" onChange={(e) => e.target.files && setFileName(e.target.files[0].name)} />
+                  <Input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const selected = e.target.files?.[0] ?? null; setFile(selected); setFileName(selected?.name ?? ""); }} required />
                 </div>
                 <DialogFooter className="pt-2">
-                  <Button type="submit" className="w-full font-bold">Publish to Enrolled Students</Button>
+                  <Button type="submit" className="w-full font-bold" disabled={uploading}>{uploading ? "Uploading securely…" : "Publish to Enrolled Students"}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>

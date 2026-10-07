@@ -100,6 +100,19 @@ Do not add the old `VITE_RESEND_API_KEY`.
 
 After changing secrets, redeploy the application.
 
+## Final production checks discovered during the October 7, 2026 reconciliation
+
+The portal data layer is now backed by the production Supabase tables, learning-resource files use the private `academy-learning-resources` Storage bucket, and student downloads use short-lived signed URLs.
+
+One external dependency is still required before student activation can be considered production-ready:
+
+- Resend currently has no verified sending domain in the connected account.
+- Add a verified sending domain in Resend and set `RESEND_FROM_EMAIL` in Vercel Production to a sender on that domain.
+- The activation flow now treats missing/failed credential delivery as an activation failure instead of reporting a false success.
+- Do not use `onboarding@resend.dev` as the production sender for arbitrary student addresses.
+
+Supabase's production guidance also recommends custom SMTP for Auth emails rather than relying on the default hosted email service.
+
 ## Current limitation you should understand
 
 The uploaded project still contains legacy synchronous portal helpers in `src/lib/student-storage.ts`. This patch prevents those helpers from seeding fake credentials and adds real Supabase authentication/route protection, but the remaining CRUD screens must be migrated fully to Supabase before declaring the application completely production-ready.

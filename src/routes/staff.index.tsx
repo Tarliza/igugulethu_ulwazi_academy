@@ -59,6 +59,9 @@ export function StaffDashboardPage() {
   const [resSubject, setResSubject] = useState<string>("Mathematics");
   const [resDesc, setResDesc] = useState("");
   const [resFileName, setResFileName] = useState("");
+  const [resFile, setResFile] = useState<File | null>(null);
+  const [resourceActionError, setResourceActionError] = useState("");
+  const [resourceActionBusy, setResourceActionBusy] = useState(false);
 
   const [stuFirstName, setStuFirstName] = useState("");
   const [stuLastName, setStuLastName] = useState("");
@@ -132,23 +135,27 @@ export function StaffDashboardPage() {
     }
   };
 
-  const handleUploadResource = (e: React.FormEvent) => {
+  const handleUploadResource = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resTitle) return;
-
-    addResource({
-      title: resTitle,
-      subject: resSubject,
-      description: resDesc,
-      fileName: resFileName || (resTitle.toLowerCase().replace(/\s+/g, "_") + ".pdf"),
-      uploadedBy: "Staff Administration",
-    });
-
-    setResTitle("");
-    setResDesc("");
-    setResFileName("");
-    setOpenResourceModal(false);
-    loadDashboardData();
+    if (!resTitle || !resFile) {
+      setResourceActionError("Choose a PDF, DOC, or DOCX file before publishing.");
+      return;
+    }
+    setResourceActionError("");
+    setResourceActionBusy(true);
+    try {
+      await addResource({ title: resTitle, subject: resSubject, description: resDesc, fileName: resFile.name, uploadedBy: "Staff Administration", file: resFile });
+      setResTitle("");
+      setResDesc("");
+      setResFileName("");
+      setResFile(null);
+      setOpenResourceModal(false);
+      loadDashboardData();
+    } catch (error) {
+      setResourceActionError(error instanceof Error ? error.message : "Could not upload the learning resource.");
+    } finally {
+      setResourceActionBusy(false);
+    }
   };
 
   const handleScheduleSession = (e: React.FormEvent) => {
@@ -417,10 +424,10 @@ export function StaffDashboardPage() {
                     </div>
                     <div className="space-y-1">
                       <Label>Upload File (PDF / DOCX)</Label>
-                      <Input type="file" onChange={(e) => e.target.files && setResFileName(e.target.files[0].name)} />
+                      <Input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const selected = e.target.files?.[0] ?? null; setResFile(selected); setResFileName(selected?.name ?? ""); }} required />
                     </div>
                     <DialogFooter className="pt-2">
-                      <Button type="submit" className="w-full font-bold">Publish to Enrolled Students</Button>
+                      <Button type="submit" className="w-full font-bold" disabled={resourceActionBusy}>{resourceActionBusy ? "Uploading securely…" : "Publish to Enrolled Students"}</Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
