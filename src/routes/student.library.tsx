@@ -5,7 +5,7 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getResources, Resource } from "@/lib/student-storage";
+import { getResources, getResourceDownloadUrl, Resource } from "@/lib/student-storage";
 import { BookOpen, Download, FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -16,6 +16,8 @@ export const Route = createFileRoute("/student/library")({
 export function StudentLibraryPage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [query, setQuery] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState("");
 
   useEffect(() => {
     setResources(getResources());
@@ -24,6 +26,19 @@ export function StudentLibraryPage() {
   const filtered = resources.filter(
     (r) => r.title.toLowerCase().includes(query.toLowerCase()) || r.subject.toLowerCase().includes(query.toLowerCase())
   );
+
+  const handleDownload = async (resource: Resource) => {
+    setDownloadError("");
+    setDownloadingId(resource.id);
+    try {
+      const url = await getResourceDownloadUrl(resource);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "Could not create a secure download link.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <PortalShell role="student" title="Learning Resource Library">
@@ -42,6 +57,8 @@ export function StudentLibraryPage() {
             className="pl-9 bg-background"
           />
         </div>
+
+        {downloadError && <p className="text-sm font-semibold text-destructive">{downloadError}</p>}
 
         {filtered.length === 0 ? (
           <Card className="text-center py-12 border-dashed">
