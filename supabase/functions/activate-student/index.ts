@@ -47,12 +47,53 @@ export default {
     const amount = reg.amount ?? (plan === "1 Subject" ? "R300" : plan === "3 Subjects" ? "R750" : "R550");
     const { error: studentError } = await ctx.supabaseAdmin.from("students").insert({ user_id: userId, student_number: studentNumber, full_name: `${reg.first_name} ${reg.last_name}`.trim(), email, phone: reg.phone, grade: reg.grade, school: reg.school, plan, amount, subjects: reg.subjects, status: "Active", payment_status: "paid", activated_by: callerId, enrolled_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     if (studentError) { await ctx.supabaseAdmin.from("user_roles").delete().eq("user_id", userId); await ctx.supabaseAdmin.auth.admin.deleteUser(userId); return json({ success: false, error: studentError.message }, 500); }
-    const { error: updateError } = await ctx.supabaseAdmin.from("pending_registrations").update({ status: "activated", activated_at: new Date().toISOString(), reviewed_by: callerId, reviewed_at: new Date().toISOString() }).eq("id", body.registrationId);
-    if (updateError) return json({ success: false, error: updateError.message }, 500);
-
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    const from = Deno.env.get("RESEND_FROM_EMAIL") ?? "Igugulethu Academy <onboarding@resend.dev>";
-    if (resendKey) await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: email, subject: "Your Igugulethu Ulwazi Academy login credentials", text: `Hi ${reg.first_name}, your registration has been approved. Student Number: ${studentNumber}. Temporary Password: ${password}. Please sign in and change your password.` }) }).catch(() => undefined);
-    return json({ success: true, studentNumber, password, originalEmail: email });
+    const from = Deno.env.get("RESEND_FROM_EMAIL");
+    if (!resendKey || !from) {
+      await ctx.supabaseAdmin.from("students").delete().eq("user_id", userId);
+      await ctx.supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
+      await ctx.supabaseAdmin.auth.admin.deleteUser(userId);
+      return json({ success: false, error: "Student activation email delivery is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL before activating students." }, 503);
+    }
+
+    const { error: updateError } = await ctx.supabaseAdmin.from("pending_registrations").update({
+      status: "activated",
+      activated_at: new Date().toISOString(),
+      reviewed_by: callerId,
+      reviewed_at: new Date().toISOString(),
+    }).eq("id", body.registrationId);
+    if (updateError) {
+      await ctx.supabaseAdmin.from("students").delete().eq("user_id", userId);
+      await ctx.supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
+      await ctx.supabaseAdmin.auth.admin.deleteUser(userId);
+      return json({ success: false, error: "Student activation could not be completed." }, 500);
+    }
+
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: email,
+        subject: "Your Igugulethu Ulwazi Academy login credentials",
+        text: `Hi ${reg.first_name}, your registration has been approved. Student Number: ${studentNumber}. Temporary Password: ${password}. Please sign in and change your password.`,
+      }),
+    });
+
+    if (!resendResponse.ok) {
+      console.error("[activate-student] credential email failed", await resendResponse.text().catch(() => ""));
+      await ctx.supabaseAdmin.from("pending_registrations").update({
+        status: "pending",
+        activated_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+      }).eq("id", body.registrationId);
+      await ctx.supabaseAdmin.from("students").delete().eq("user_id", userId);
+      await ctx.supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
+      await ctx.supabaseAdmin.auth.admin.deleteUser(userId);
+      return json({ success: false, error: "The student account was not activated because the credential email could not be delivered. Please verify the academy sender configuration and try again." }, 502);
+    }
+
+    return json({ success: true, studentNumber, originalEmail: email });
   }),
 };
