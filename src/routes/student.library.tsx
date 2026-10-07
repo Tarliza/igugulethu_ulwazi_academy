@@ -88,8 +88,8 @@ export function StudentLibraryPage() {
                   <p className="text-muted-foreground line-clamp-2">{res.description || "Comprehensive student revision worksheet."}</p>
                   <div className="pt-2 border-t flex items-center justify-between">
                     <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">{res.fileName}</span>
-                    <Button size="sm" variant="outline" className="text-xs gap-1">
-                      <Download className="h-3 w-3" /> Download
+                    <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => handleDownload(res)} disabled={downloadingId === res.id}>
+                      <Download className="h-3 w-3" /> {downloadingId === res.id ? "Preparing…" : "Download"}
                     </Button>
                   </div>
                 </CardContent>
