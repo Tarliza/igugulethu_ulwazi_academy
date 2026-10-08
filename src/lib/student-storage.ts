@@ -503,15 +503,32 @@ export async function deleteResource(id: string) {
 }
 
 export function getScheduleEvents(): ScheduleEvent[] { ensureHydrated(); return scheduleCache; }
-export function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "createdAt">): ScheduleEvent {
+export async function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "createdAt">): Promise<ScheduleEvent> {
   const item: ScheduleEvent = { ...event, id: uuid(), createdAt: new Date().toISOString() };
-  scheduleCache.unshift(item);
-  void db.from("live_sessions").insert({ id: item.id, title: item.title, subject: item.subject, tutor_name: item.tutorName, teams_link: item.teamsLink, session_date: item.date, time_slot: item.time, notes: item.notes ?? null }).then(({ error }: any) => {
-    if (error) console.error("[Academy] Schedule insert failed", error);
-    else emitDataChanged();
+  const { data, error } = await db.from("live_sessions").insert({
+    id: item.id,
+    title: item.title,
+    subject: item.subject,
+    tutor_name: item.tutorName,
+    teams_link: item.teamsLink,
+    session_date: item.date,
+    time_slot: item.time,
+    notes: item.notes ?? null,
+  }).select("*").single();
+  if (error || !data) throw new Error(error?.message ?? "Could not publish the live session.");
+  scheduleCache.unshift({
+    id: data.id,
+    title: data.title,
+    subject: data.subject,
+    tutorName: data.tutor_name,
+    teamsLink: data.teams_link,
+    date: data.session_date,
+    time: data.time_slot,
+    notes: data.notes ?? undefined,
+    createdAt: data.created_at,
   });
   emitDataChanged();
-  return item;
+  return scheduleCache[0];
 }
 
 export function getTutorBookings(): TutorBooking[] { ensureHydrated(); return bookingsCache; }
@@ -527,15 +544,25 @@ export function addTutorBooking(booking: Omit<TutorBooking, "id" | "status" | "c
 }
 
 export function getAnnouncements(): Announcement[] { ensureHydrated(); return announcementsCache; }
-export function addAnnouncement(ann: Omit<Announcement, "id" | "createdAt">): Announcement {
+export async function addAnnouncement(ann: Omit<Announcement, "id" | "createdAt">): Promise<Announcement> {
   const item: Announcement = { ...ann, id: uuid(), createdAt: new Date().toISOString() };
-  announcementsCache.unshift(item);
-  void db.from("announcements").insert({ id: item.id, title: item.title, content: item.content, author: item.author }).then(({ error }: any) => {
-    if (error) console.error("[Academy] Announcement insert failed", error);
-    else emitDataChanged();
-  });
+  const { data, error } = await db.from("announcements").insert({
+    id: item.id,
+    title: item.title,
+    content: item.content,
+    author: item.author,
+  }).select("*").single();
+  if (error || !data) throw new Error(error?.message ?? "Could not publish the announcement.");
+  const saved: Announcement = {
+    id: data.id,
+    title: data.title,
+    content: data.content,
+    author: data.author,
+    createdAt: data.created_at,
+  };
+  announcementsCache.unshift(saved);
   emitDataChanged();
-  return item;
+  return saved;
 }
 
 export function verifyStudentLogin(): { success: boolean; error?: string } {
