@@ -93,6 +93,9 @@ export function StaffDashboardPage() {
 
   useEffect(() => {
     loadDashboardData();
+    const refresh = () => loadDashboardData();
+    window.addEventListener("academy-data-updated", refresh);
+    return () => window.removeEventListener("academy-data-updated", refresh);
   }, []);
 
   const handleAddStudent = async (e: React.FormEvent) => {
