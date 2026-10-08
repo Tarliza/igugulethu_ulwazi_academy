@@ -35,27 +35,33 @@ export function StaffBookingsPage() {
 
   useEffect(() => {
     loadData();
+    const refresh = () => loadData();
+    window.addEventListener("academy-data-updated", refresh);
+    return () => window.removeEventListener("academy-data-updated", refresh);
   }, []);
 
-  const handleAddEvent = (e: React.FormEvent) => {
+  const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !date || !time) return;
 
-    addScheduleEvent({
-      title,
-      subject,
-      tutorName,
-      teamsLink: teamsLink || "https://teams.microsoft.com",
-      date,
-      time,
-    });
-
-    setTitle("");
-    setDate("");
-    setTime("");
-    setTeamsLink("");
-    setOpenModal(false);
-    loadData();
+    try {
+      await addScheduleEvent({
+        title,
+        subject,
+        tutorName,
+        teamsLink: teamsLink || "https://teams.microsoft.com",
+        date,
+        time,
+      });
+      setTitle("");
+      setDate("");
+      setTime("");
+      setTeamsLink("");
+      setOpenModal(false);
+      loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not publish the live class.");
+    }
   };
 
   return (

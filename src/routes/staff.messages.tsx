@@ -28,19 +28,22 @@ export function StaffMessagesPage() {
     loadData();
   }, []);
 
-  const handlePost = (e: React.FormEvent) => {
+  const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !content) return;
+    if (!title.trim() || !content.trim()) return;
 
-    addAnnouncement({
-      title,
-      content,
-      author: "Mr. G. Moiane (Academic Lead)",
-    });
-
-    setTitle("");
-    setContent("");
-    loadData();
+    try {
+      await addAnnouncement({
+        title: title.trim(),
+        content: content.trim(),
+        author: "Mr. G. Moiane (Academic Lead)",
+      });
+      setTitle("");
+      setContent("");
+      loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not publish the announcement.");
+    }
   };
 
   return (

@@ -58,6 +58,9 @@ export function StaffStudentsPage() {
 
   useEffect(() => {
     loadData();
+    const refresh = () => loadData();
+    window.addEventListener("academy-data-updated", refresh);
+    return () => window.removeEventListener("academy-data-updated", refresh);
   }, []);
 
   const handleCaptureGrade = (e: React.FormEvent) => {

@@ -116,6 +116,39 @@ const bookingsCache: TutorBooking[] = [];
 const announcementsCache: Announcement[] = [];
 let currentStudentCache: Student | null = null;
 let hydrationStarted = false;
+let realtimeStarted = false;
+
+function ensureRealtimeSubscription() {
+  if (typeof window === "undefined" || realtimeStarted) return;
+  realtimeStarted = true;
+
+  const tables = [
+    "pending_registrations",
+    "students",
+    "resources",
+    "live_sessions",
+    "tutor_bookings",
+    "announcements",
+    "messages",
+    "student_grades",
+  ];
+
+  let channel = supabase.channel("academy-portal-data-sync");
+  for (const table of tables) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table },
+      () => { void hydrate(true); },
+    );
+  }
+
+  channel.subscribe((status) => {
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+      realtimeStarted = false;
+      console.error("[Academy] Realtime sync unavailable:", status);
+    }
+  });
+}
 
 function emitDataChanged() {
   if (typeof window !== "undefined") {
@@ -292,10 +325,11 @@ async function hydrate(force = false) {
 }
 
 function ensureHydrated() {
+  ensureRealtimeSubscription();
   void hydrate();
 }
 
-export function getRegistrations(): Registration[] { ensureHydrated(); return registrationsCache; }
+export function getRegistrations(): Registration[] { ensureHydrated(); return [...registrationsCache]; }
 export function getPendingRegistrations(): Registration[] { ensureHydrated(); return registrationsCache.filter((r) => r.status === "pending"); }
 
 export function addRegistration(reg: Omit<Registration, "id" | "status" | "createdAt">): Registration {
@@ -341,7 +375,7 @@ export async function rejectRegistration(registrationId: string) {
   emitDataChanged();
 }
 
-export function getStudents(): Student[] { ensureHydrated(); return studentsCache; }
+export function getStudents(): Student[] { ensureHydrated(); return [...studentsCache]; }
 
 export async function addStudentDirectly(student: Omit<Student, "id" | "studentNumber" | "enrolledAt" | "grades">) {
   const registrationId = uuid();
@@ -417,7 +451,7 @@ export function getStudentAverage(student: Student | null): number {
   return Math.round(total / student.grades.length);
 }
 
-export function getResources(): Resource[] { ensureHydrated(); return resourcesCache; }
+export function getResources(): Resource[] { ensureHydrated(); return [...resourcesCache]; }
 export function getResourcesForStudent(studentSubjects: string[]): Resource[] {
   ensureHydrated();
   return resourcesCache.filter((r) => studentSubjects.includes(r.subject) || r.subject === "All Subjects");
@@ -502,19 +536,36 @@ export async function deleteResource(id: string) {
   emitDataChanged();
 }
 
-export function getScheduleEvents(): ScheduleEvent[] { ensureHydrated(); return scheduleCache; }
-export function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "createdAt">): ScheduleEvent {
+export function getScheduleEvents(): ScheduleEvent[] { ensureHydrated(); return [...scheduleCache]; }
+export async function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "createdAt">): Promise<ScheduleEvent> {
   const item: ScheduleEvent = { ...event, id: uuid(), createdAt: new Date().toISOString() };
-  scheduleCache.unshift(item);
-  void db.from("live_sessions").insert({ id: item.id, title: item.title, subject: item.subject, tutor_name: item.tutorName, teams_link: item.teamsLink, session_date: item.date, time_slot: item.time, notes: item.notes ?? null }).then(({ error }: any) => {
-    if (error) console.error("[Academy] Schedule insert failed", error);
-    else emitDataChanged();
+  const { data, error } = await db.from("live_sessions").insert({
+    id: item.id,
+    title: item.title,
+    subject: item.subject,
+    tutor_name: item.tutorName,
+    teams_link: item.teamsLink,
+    session_date: item.date,
+    time_slot: item.time,
+    notes: item.notes ?? null,
+  }).select("*").single();
+  if (error || !data) throw new Error(error?.message ?? "Could not publish the live session.");
+  scheduleCache.unshift({
+    id: data.id,
+    title: data.title,
+    subject: data.subject,
+    tutorName: data.tutor_name,
+    teamsLink: data.teams_link,
+    date: data.session_date,
+    time: data.time_slot,
+    notes: data.notes ?? undefined,
+    createdAt: data.created_at,
   });
   emitDataChanged();
-  return item;
+  return scheduleCache[0];
 }
 
-export function getTutorBookings(): TutorBooking[] { ensureHydrated(); return bookingsCache; }
+export function getTutorBookings(): TutorBooking[] { ensureHydrated(); return [...bookingsCache]; }
 export function addTutorBooking(booking: Omit<TutorBooking, "id" | "status" | "createdAt">): TutorBooking {
   const item: TutorBooking = { ...booking, id: uuid(), status: "pending", createdAt: new Date().toISOString() };
   bookingsCache.unshift(item);
@@ -526,16 +577,26 @@ export function addTutorBooking(booking: Omit<TutorBooking, "id" | "status" | "c
   return item;
 }
 
-export function getAnnouncements(): Announcement[] { ensureHydrated(); return announcementsCache; }
-export function addAnnouncement(ann: Omit<Announcement, "id" | "createdAt">): Announcement {
+export function getAnnouncements(): Announcement[] { ensureHydrated(); return [...announcementsCache]; }
+export async function addAnnouncement(ann: Omit<Announcement, "id" | "createdAt">): Promise<Announcement> {
   const item: Announcement = { ...ann, id: uuid(), createdAt: new Date().toISOString() };
-  announcementsCache.unshift(item);
-  void db.from("announcements").insert({ id: item.id, title: item.title, content: item.content, author: item.author }).then(({ error }: any) => {
-    if (error) console.error("[Academy] Announcement insert failed", error);
-    else emitDataChanged();
-  });
+  const { data, error } = await db.from("announcements").insert({
+    id: item.id,
+    title: item.title,
+    content: item.content,
+    author: item.author,
+  }).select("*").single();
+  if (error || !data) throw new Error(error?.message ?? "Could not publish the announcement.");
+  const saved: Announcement = {
+    id: data.id,
+    title: data.title,
+    content: data.content,
+    author: data.author,
+    createdAt: data.created_at,
+  };
+  announcementsCache.unshift(saved);
   emitDataChanged();
-  return item;
+  return saved;
 }
 
 export function verifyStudentLogin(): { success: boolean; error?: string } {

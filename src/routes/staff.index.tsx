@@ -93,6 +93,9 @@ export function StaffDashboardPage() {
 
   useEffect(() => {
     loadDashboardData();
+    const refresh = () => loadDashboardData();
+    window.addEventListener("academy-data-updated", refresh);
+    return () => window.removeEventListener("academy-data-updated", refresh);
   }, []);
 
   const handleAddStudent = async (e: React.FormEvent) => {
@@ -158,25 +161,28 @@ export function StaffDashboardPage() {
     }
   };
 
-  const handleScheduleSession = (e: React.FormEvent) => {
+  const handleScheduleSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sessionTitle || !sessionDate || !sessionTime) return;
 
-    addScheduleEvent({
-      title: sessionTitle,
-      subject: sessionSubject,
-      tutorName: tutorName || "Academy Faculty",
-      teamsLink: teamsLink || "https://teams.microsoft.com",
-      date: sessionDate,
-      time: sessionTime,
-    });
-
-    setSessionTitle("");
-    setTeamsLink("");
-    setSessionDate("");
-    setSessionTime("");
-    setOpenScheduleModal(false);
-    loadDashboardData();
+    try {
+      await addScheduleEvent({
+        title: sessionTitle,
+        subject: sessionSubject,
+        tutorName: tutorName || "Academy Faculty",
+        teamsLink: teamsLink || "https://teams.microsoft.com",
+        date: sessionDate,
+        time: sessionTime,
+      });
+      setSessionTitle("");
+      setTeamsLink("");
+      setSessionDate("");
+      setSessionTime("");
+      setOpenScheduleModal(false);
+      loadDashboardData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not publish the live session.");
+    }
   };
 
   const restrictedStudents = students.filter((s) => s.status === "Access Denied" || s.status === "Payment Overdue");
