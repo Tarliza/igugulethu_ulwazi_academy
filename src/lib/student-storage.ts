@@ -295,7 +295,7 @@ function ensureHydrated() {
   void hydrate();
 }
 
-export function getRegistrations(): Registration[] { ensureHydrated(); return registrationsCache; }
+export function getRegistrations(): Registration[] { ensureHydrated(); return [...registrationsCache]; }
 export function getPendingRegistrations(): Registration[] { ensureHydrated(); return registrationsCache.filter((r) => r.status === "pending"); }
 
 export function addRegistration(reg: Omit<Registration, "id" | "status" | "createdAt">): Registration {
@@ -341,7 +341,7 @@ export async function rejectRegistration(registrationId: string) {
   emitDataChanged();
 }
 
-export function getStudents(): Student[] { ensureHydrated(); return studentsCache; }
+export function getStudents(): Student[] { ensureHydrated(); return [...studentsCache]; }
 
 export async function addStudentDirectly(student: Omit<Student, "id" | "studentNumber" | "enrolledAt" | "grades">) {
   const registrationId = uuid();
@@ -417,7 +417,7 @@ export function getStudentAverage(student: Student | null): number {
   return Math.round(total / student.grades.length);
 }
 
-export function getResources(): Resource[] { ensureHydrated(); return resourcesCache; }
+export function getResources(): Resource[] { ensureHydrated(); return [...resourcesCache]; }
 export function getResourcesForStudent(studentSubjects: string[]): Resource[] {
   ensureHydrated();
   return resourcesCache.filter((r) => studentSubjects.includes(r.subject) || r.subject === "All Subjects");
@@ -502,7 +502,7 @@ export async function deleteResource(id: string) {
   emitDataChanged();
 }
 
-export function getScheduleEvents(): ScheduleEvent[] { ensureHydrated(); return scheduleCache; }
+export function getScheduleEvents(): ScheduleEvent[] { ensureHydrated(); return [...scheduleCache]; }
 export async function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "createdAt">): Promise<ScheduleEvent> {
   const item: ScheduleEvent = { ...event, id: uuid(), createdAt: new Date().toISOString() };
   const { data, error } = await db.from("live_sessions").insert({
@@ -531,7 +531,7 @@ export async function addScheduleEvent(event: Omit<ScheduleEvent, "id" | "create
   return scheduleCache[0];
 }
 
-export function getTutorBookings(): TutorBooking[] { ensureHydrated(); return bookingsCache; }
+export function getTutorBookings(): TutorBooking[] { ensureHydrated(); return [...bookingsCache]; }
 export function addTutorBooking(booking: Omit<TutorBooking, "id" | "status" | "createdAt">): TutorBooking {
   const item: TutorBooking = { ...booking, id: uuid(), status: "pending", createdAt: new Date().toISOString() };
   bookingsCache.unshift(item);
@@ -543,7 +543,7 @@ export function addTutorBooking(booking: Omit<TutorBooking, "id" | "status" | "c
   return item;
 }
 
-export function getAnnouncements(): Announcement[] { ensureHydrated(); return announcementsCache; }
+export function getAnnouncements(): Announcement[] { ensureHydrated(); return [...announcementsCache]; }
 export async function addAnnouncement(ann: Omit<Announcement, "id" | "createdAt">): Promise<Announcement> {
   const item: Announcement = { ...ann, id: uuid(), createdAt: new Date().toISOString() };
   const { data, error } = await db.from("announcements").insert({
