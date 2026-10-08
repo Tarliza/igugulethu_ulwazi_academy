@@ -17,8 +17,13 @@ export function StudentTimetablePage() {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
 
   useEffect(() => {
-    setStudent(getCurrentStudent());
-    setEvents(getScheduleEvents());
+    const refresh = () => {
+      setStudent(getCurrentStudent());
+      setEvents([...getScheduleEvents()]);
+    };
+    refresh();
+    window.addEventListener("academy-data-updated", refresh);
+    return () => window.removeEventListener("academy-data-updated", refresh);
   }, []);
 
   const enrolledEvents = events.filter(
