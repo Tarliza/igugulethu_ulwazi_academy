@@ -116,6 +116,39 @@ const bookingsCache: TutorBooking[] = [];
 const announcementsCache: Announcement[] = [];
 let currentStudentCache: Student | null = null;
 let hydrationStarted = false;
+let realtimeStarted = false;
+
+function ensureRealtimeSubscription() {
+  if (typeof window === "undefined" || realtimeStarted) return;
+  realtimeStarted = true;
+
+  const tables = [
+    "pending_registrations",
+    "students",
+    "resources",
+    "live_sessions",
+    "tutor_bookings",
+    "announcements",
+    "messages",
+    "student_grades",
+  ];
+
+  let channel = supabase.channel("academy-portal-data-sync");
+  for (const table of tables) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table },
+      () => { void hydrate(true); },
+    );
+  }
+
+  channel.subscribe((status) => {
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+      realtimeStarted = false;
+      console.error("[Academy] Realtime sync unavailable:", status);
+    }
+  });
+}
 
 function emitDataChanged() {
   if (typeof window !== "undefined") {
@@ -292,6 +325,7 @@ async function hydrate(force = false) {
 }
 
 function ensureHydrated() {
+  ensureRealtimeSubscription();
   void hydrate();
 }
 
