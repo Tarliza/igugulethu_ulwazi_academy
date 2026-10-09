@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getResources, addResource, deleteResource, Resource, ACADEMY_SUBJECTS } from "@/lib/student-storage";
+import { supabase } from "@/integrations/client";
 import { BookOpen, Plus, Download, FileText, UploadCloud, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/staff/resources")({
@@ -45,7 +45,14 @@ export function StaffResourcesPage() {
     setUploadError("");
     setUploading(true);
     try {
-      await addResource({ title, subject, description, fileName: file.name, uploadedBy: "Academy Staff", file });
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error("Your staff session could not be verified. Sign in again and retry.");
+      }
+
+      // resources.uploaded_by references auth.users(id), so persist the authenticated user's UUID,
+      // never a display label such as "Academy Staff".
+      await addResource({ title, subject, description, fileName: file.name, uploadedBy: user.id, file });
       setTitle("");
       setDescription("");
       setFileName("");
@@ -163,7 +170,7 @@ export function StaffResourcesPage() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </div>
             ))}
           </div>
         )}
