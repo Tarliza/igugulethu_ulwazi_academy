@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getResources, addResource, deleteResource, Resource, ACADEMY_SUBJECTS } from "@/lib/student-storage";
+import { supabase } from "@/integrations/client";
 import { BookOpen, Plus, Download, FileText, UploadCloud, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/staff/resources")({
@@ -45,7 +46,13 @@ export function StaffResourcesPage() {
     setUploadError("");
     setUploading(true);
     try {
-      await addResource({ title, subject, description, fileName: file.name, uploadedBy: "Academy Staff", file });
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error("Your staff session could not be verified. Sign in again and retry.");
+      }
+
+      // resources.uploaded_by is a UUID; use the authenticated user's ID, not a display label.
+      await addResource({ title, subject, description, fileName: file.name, uploadedBy: user.id, file });
       setTitle("");
       setDescription("");
       setFileName("");
