@@ -14,9 +14,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    plan: (search.plan as string) || "2-subjects",
-  }),
+  validateSearch: (search: Record<string, unknown>) => {
+    const allowedPlans = new Set(["1-subject", "2-subjects", "3-subjects"]);
+    const requestedPlan = search.plan;
+    return {
+      plan:
+        typeof requestedPlan === "string" && allowedPlans.has(requestedPlan)
+          ? requestedPlan
+          : "2-subjects",
+    };
+  },
 });
 
 export function RegisterPage() {
@@ -145,19 +152,37 @@ export function RegisterPage() {
               {validationError && <Alert variant="destructive" className="py-2.5"><AlertCircle className="h-4 w-4" /><AlertDescription className="text-xs">{validationError}</AlertDescription></Alert>}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label>First Name *</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Kuhle" required /></div>
-                <div className="space-y-1.5"><Label>Last Name *</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="e.g. Ngam" required /></div>
-                <div className="space-y-1.5"><Label>Email Address *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="student@example.com" required /></div>
-                <div className="space-y-1.5"><Label>Phone Number *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 067 148 6015" required /></div>
-                <div className="space-y-1.5"><Label>Grade *</Label><Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="e.g. Grade 11" required /></div>
-                <div className="space-y-1.5"><Label>School *</Label><Input value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Kenilworth High" required /></div>
+                <div className="space-y-1.5"><Label htmlFor="first-name">First Name *</Label><Input id="first-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Kuhle" required /></div>
+                <div className="space-y-1.5"><Label htmlFor="last-name">Last Name *</Label><Input id="last-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="e.g. Ngam" required /></div>
+                <div className="space-y-1.5"><Label htmlFor="email">Email Address *</Label><Input id="email" autoComplete="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="student@example.com" required /></div>
+                <div className="space-y-1.5"><Label htmlFor="phone">Phone Number *</Label><Input id="phone" autoComplete="tel" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 067 148 6015" required /></div>
+                <div className="space-y-1.5"><Label htmlFor="grade">Grade *</Label><Input id="grade" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="e.g. Grade 11" required /></div>
+                <div className="space-y-1.5"><Label htmlFor="school">School *</Label><Input id="school" autoComplete="organization" value={school} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Kenilworth High" required /></div>
               </div>
 
               <div className="space-y-2 pt-2 border-t">
                 <div className="flex justify-between items-center"><Label className="text-base font-semibold">Subjects of Interest *</Label><span className="text-xs font-bold text-primary">Selected: {subjects.length} / {requiredCount}</span></div>
                 <p className="text-xs text-muted-foreground">Select exactly {requiredCount} subject{requiredCount > 1 ? "s" : ""} included in your {planName} plan.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-                  {ACADEMY_SUBJECTS.map((subject) => <div key={subject} onClick={() => toggleSubject(subject)} className={`flex items-center space-x-2 border rounded-lg p-2.5 cursor-pointer transition-colors ${subjects.includes(subject) ? "bg-primary/10 border-primary text-primary font-bold" : "hover:bg-muted/40"}`}><Checkbox id={subject} checked={subjects.includes(subject)} /><label htmlFor={subject} className="text-xs cursor-pointer leading-none">{subject}</label></div>)}
+                  {ACADEMY_SUBJECTS.map((subject, index) => {
+                    const subjectId = `subject-${index}`;
+                    const isSelected = subjects.includes(subject);
+                    return (
+                      <div
+                        key={subject}
+                        className={`flex items-center space-x-2 border rounded-lg p-2.5 transition-colors ${isSelected ? "bg-primary/10 border-primary text-primary font-bold" : "hover:bg-muted/40"}`}
+                      >
+                        <Checkbox
+                          id={subjectId}
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSubject(subject)}
+                        />
+                        <label htmlFor={subjectId} className="text-xs cursor-pointer leading-none">
+                          {subject}
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -175,7 +200,7 @@ export function RegisterPage() {
                 <Label className="text-base font-semibold">Upload Proof of Subscription / Payment *</Label>
                 {fileError && <p className="text-xs text-red-600 font-semibold">{fileError}</p>}
                 <div className="border-2 border-dashed rounded-xl p-6 text-center hover:bg-muted/30 transition-colors relative cursor-pointer">
-                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" required={!proofFile} />
+                  <input id="proof-file" aria-label="Upload proof of payment" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" required={!proofFile} />
                   <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm font-medium">{proofFile ? proofFile.name : "Click to upload proof of payment"}</p>
                   <p className="text-xs text-muted-foreground mt-1">PDF, PNG or JPG — max 10 MB</p>
