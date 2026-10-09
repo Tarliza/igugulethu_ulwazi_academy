@@ -170,7 +170,7 @@ export function StaffResourcesPage() {
                     </div>
                   </div>
                 </CardContent>
-              </div>
+              </Card>
             ))}
           </div>
         )}
