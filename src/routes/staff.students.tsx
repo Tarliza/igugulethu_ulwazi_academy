@@ -51,6 +51,8 @@ export function StaffStudentsPage() {
   const [testScore, setTestScore] = useState("");
   const [testMax, setTestMax] = useState("100");
   const [tutorFeedback, setTutorFeedback] = useState("");
+  const [gradeError, setGradeError] = useState("");
+  const [savingGrade, setSavingGrade] = useState(false);
 
   const loadData = () => {
     setStudents(getStudents());
@@ -63,23 +65,39 @@ export function StaffStudentsPage() {
     return () => window.removeEventListener("academy-data-updated", refresh);
   }, []);
 
-  const handleCaptureGrade = (e: React.FormEvent) => {
+  const handleCaptureGrade = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gradeModalStudent || !testTitle || !testScore) return;
+    setGradeError("");
+    if (!gradeModalStudent) return;
 
-    addStudentGrade(gradeModalStudent.id, {
-      assessment: testTitle,
-      subject: testSubject,
-      score: parseFloat(testScore) || 0,
-      maxScore: parseFloat(testMax) || 100,
-      tutorFeedback: tutorFeedback || "Solid effort. Continue practicing past exam questions.",
-    });
+    const score = Number(testScore);
+    const maxScore = Number(testMax);
+    if (!testTitle.trim()) { setGradeError("Enter an assessment name."); return; }
+    if (!Number.isFinite(score) || !Number.isFinite(maxScore) || maxScore <= 0 || score < 0 || score > maxScore) {
+      setGradeError("The score must be between 0 and the total mark, and the total mark must be greater than zero.");
+      return;
+    }
 
-    setTestTitle("");
-    setTestScore("");
-    setTutorFeedback("");
-    setGradeModalStudent(null);
-    loadData();
+    setSavingGrade(true);
+    try {
+      await addStudentGrade(gradeModalStudent.id, {
+        assessment: testTitle.trim(),
+        subject: testSubject,
+        score,
+        maxScore,
+        tutorFeedback: tutorFeedback.trim() || undefined,
+      });
+      setTestTitle("");
+      setTestScore("");
+      setTestMax("100");
+      setTutorFeedback("");
+      setGradeModalStudent(null);
+      loadData();
+    } catch (error) {
+      setGradeError(error instanceof Error ? error.message : "The mark could not be saved. Please try again.");
+    } finally {
+      setSavingGrade(false);
+    }
   };
 
   const handleToggleStatus = (student: Student) => {
@@ -249,6 +267,7 @@ export function StaffStudentsPage() {
             </DialogHeader>
 
             <form onSubmit={handleCaptureGrade} className="space-y-3.5 py-2 text-xs">
+              {gradeError && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs font-semibold text-destructive">{gradeError}</p>}
               <div className="space-y-1">
                 <Label>Subject *</Label>
                 <Select value={testSubject} onValueChange={setTestSubject}>
@@ -269,11 +288,11 @@ export function StaffStudentsPage() {
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <Label>Student Mark (Score) *</Label>
-                  <Input type="number" placeholder="e.g. 78" value={testScore} onChange={(e) => setTestScore(e.target.value)} required />
+                  <Input type="number" min="0" step="0.1" placeholder="e.g. 78" value={testScore} onChange={(e) => setTestScore(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
                   <Label>Total Out Of *</Label>
-                  <Input type="number" placeholder="100" value={testMax} onChange={(e) => setTestMax(e.target.value)} required />
+                  <Input type="number" min="0.1" step="0.1" placeholder="100" value={testMax} onChange={(e) => setTestMax(e.target.value)} required />
                 </div>
               </div>
 
@@ -283,7 +302,7 @@ export function StaffStudentsPage() {
               </div>
 
               <DialogFooter className="pt-2">
-                <Button type="submit" className="w-full font-bold">Save & Publish to Student Portal</Button>
+                <Button type="submit" className="w-full font-bold" disabled={savingGrade}>{savingGrade ? "Saving mark…" : "Save & Publish to Student Portal"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

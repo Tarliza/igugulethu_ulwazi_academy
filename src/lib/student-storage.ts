@@ -433,15 +433,23 @@ export async function deleteStudent(studentId: string) {
   emitDataChanged();
 }
 
-export function addStudentGrade(studentId: string, grade: Omit<StudentGrade, "id" | "date">) {
-  const id = uuid();
-  const createdAt = new Date().toISOString();
-  void db.from("student_grades").insert({ id, student_id: studentId, subject: grade.subject, assessment_name: grade.assessment, score: grade.score, max_score: grade.maxScore, tutor_feedback: grade.tutorFeedback ?? null }).then(({ error }: any) => {
-    if (error) console.error("[Academy] Grade insert failed", error);
-    else void hydrate();
+export async function addStudentGrade(studentId: string, grade: Omit<StudentGrade, "id" | "date">): Promise<void> {
+  if (!grade.assessment.trim()) throw new Error("Enter an assessment name.");
+  if (!grade.subject.trim()) throw new Error("Choose a subject.");
+  if (!Number.isFinite(grade.score) || !Number.isFinite(grade.maxScore) || grade.maxScore <= 0 || grade.score < 0 || grade.score > grade.maxScore) {
+    throw new Error("The score must be between 0 and the total mark, and the total mark must be greater than zero.");
+  }
+
+  const { error } = await db.from("student_grades").insert({
+    student_id: studentId,
+    subject: grade.subject,
+    assessment_name: grade.assessment.trim(),
+    score: grade.score,
+    max_score: grade.maxScore,
+    tutor_feedback: grade.tutorFeedback?.trim() || null,
   });
-  const student = studentsCache.find((s) => s.id === studentId);
-  if (student) student.grades.unshift({ ...grade, id, date: new Date(createdAt).toLocaleDateString("en-ZA", { month: "short", day: "numeric", year: "numeric" }) });
+  if (error) throw new Error(error.message);
+  await hydrate(true);
   emitDataChanged();
 }
 
