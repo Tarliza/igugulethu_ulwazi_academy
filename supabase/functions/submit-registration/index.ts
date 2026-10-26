@@ -31,11 +31,25 @@ const ALLOWED_TYPES = new Map([
   ["image/jpeg", ".jpg"],
 ]);
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
+function json(body: unknown, status = 200, requestId?: string) {
+  const payload = body && typeof body === "object" ? body as Record<string, unknown> : { message: body };
+  return new Response(JSON.stringify({ ...payload, ...(requestId ? { requestId } : {}) }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
+}
+
+function logFailure(requestId: string, stage: string, error: unknown) {
+  const e = error as { code?: string; message?: string; status?: number } | null;
+  // Never log applicant data, request bodies, file names, file contents, or proof URLs.
+  console.error(JSON.stringify({
+    event: "submit_registration_failure",
+    requestId,
+    stage,
+    errorCode: e?.code ?? "UNCLASSIFIED",
+    status: e?.status ?? null,
+    message: typeof e?.message === "string" ? e.message.slice(0, 240) : "Unknown error",
+  }));
 }
 
 function clean(value: FormDataEntryValue | null, maxLength: number) {
@@ -63,6 +77,10 @@ export default {
   fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 405);
+
+    const requestId = crypto.randomUUID();
+    let stage = "parse_form";
+    console.info(JSON.stringify({ event: "submit_registration_started", requestId }));
 
     try {
       const form = await req.formData();
@@ -116,19 +134,25 @@ export default {
       }
 
       // Prevent accidental duplicate applications before accepting the file.
+      stage = "duplicate_check";
       const normalizedEmail = email;
-      const [{ data: pendingMatch }, { data: studentMatch }] = await Promise.all([
+      const [{ data: pendingMatch, error: pendingLookupError }, { data: studentMatch, error: studentLookupError }] = await Promise.all([
         ctx.supabaseAdmin.from("pending_registrations").select("id,status").eq("email", normalizedEmail).in("status", ["pending", "activated"]).limit(1).maybeSingle(),
         ctx.supabaseAdmin.from("students").select("id").eq("email", normalizedEmail).limit(1).maybeSingle(),
       ]);
+      if (pendingLookupError || studentLookupError) {
+        logFailure(requestId, stage, pendingLookupError ?? studentLookupError);
+        return json({ success: false, code: "DUPLICATE_CHECK_FAILED", error: "We couldn't verify whether an application already exists. Please try again later." }, 503, requestId);
+      }
       if (pendingMatch || studentMatch) {
-        return json({ success: false, error: "An application or active student account already exists for this email address." }, 409);
+        return json({ success: false, code: "DUPLICATE_APPLICATION", error: "An application or active student account already exists for this email address." }, 409, requestId);
       }
 
       const registrationId = crypto.randomUUID();
       const safeOriginalName = proof.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || `proof${extension}`;
       const storagePath = `pending/${registrationId}/${crypto.randomUUID()}${extension}`;
 
+      stage = "proof_upload";
       const { error: uploadError } = await ctx.supabaseAdmin.storage
         .from("academy-proof-of-payment")
         .upload(storagePath, bytes, {
@@ -138,10 +162,11 @@ export default {
         });
 
       if (uploadError) {
-        console.error("[submit-registration] proof upload failed", uploadError);
-        return json({ success: false, error: "We could not securely store your proof of payment. Please try again." }, 500);
+        logFailure(requestId, stage, uploadError);
+        return json({ success: false, code: "PROOF_UPLOAD_FAILED", error: "We could not securely store your proof of payment. Please try again." }, 500, requestId);
       }
 
+      stage = "registration_insert";
       const { error: insertError } = await ctx.supabaseAdmin.from("pending_registrations").insert({
         id: registrationId,
         first_name: firstName,
@@ -159,19 +184,20 @@ export default {
 
       if (insertError) {
         await ctx.supabaseAdmin.storage.from("academy-proof-of-payment").remove([storagePath]);
-        console.error("[submit-registration] registration insert failed", insertError);
-        return json({ success: false, error: "We could not submit your application. Please try again." }, 500);
+        logFailure(requestId, stage, insertError);
+        return json({ success: false, code: "REGISTRATION_SAVE_FAILED", error: "We could not submit your application. Please try again." }, 500, requestId);
       }
 
+      console.info(JSON.stringify({ event: "submit_registration_succeeded", requestId, stage: "complete" }));
       return json({
         success: true,
         registrationId,
         proofFileName: safeOriginalName,
         message: "Application received. Staff will verify your payment and email your login credentials after approval.",
-      });
+      }, 200, requestId);
     } catch (error) {
-      console.error("[submit-registration] unexpected error", error);
-      return json({ success: false, error: "We could not submit your application. Please try again." }, 500);
+      logFailure(requestId, stage, error);
+      return json({ success: false, code: "REGISTRATION_UNEXPECTED_ERROR", error: "We could not submit your application. Please try again." }, 500, requestId);
     }
   }),
 };

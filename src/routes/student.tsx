@@ -3,6 +3,10 @@ import { supabase } from "@/integrations/client";
 
 export const Route = createFileRoute("/student")({
   beforeLoad: async () => {
+    // Supabase browser sessions live in localStorage; SSR has no access to them.
+    // Defer this guard to the browser rather than redirecting valid users during SSR.
+    if (typeof window === "undefined") return;
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw redirect({ to: "/student-login" });
 
@@ -12,8 +16,16 @@ export const Route = createFileRoute("/student")({
       .eq("user_id", session.user.id)
       .maybeSingle();
 
-    if (error || !student) {
-      await supabase.auth.signOut();
+    if (error) {
+      // Do not turn a transient query failure into a destructive sign-out.
+      console.error("[student-route] student verification failed", {
+        code: error.code ?? "UNKNOWN",
+        message: error.message,
+      });
+      throw new Error("We couldn't verify your student access right now. Please refresh to try again.");
+    }
+
+    if (!student) {
       throw redirect({ to: "/student-login" });
     }
 

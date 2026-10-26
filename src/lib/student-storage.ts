@@ -240,9 +240,24 @@ async function hydrate(force = false) {
 
     if (Array.isArray(students)) {
       const studentIds = students.map((s: any) => s.id);
-      const { data: grades } = studentIds.length
-        ? await db.from("student_grades").select("*").in("student_id", studentIds).order("created_at", { ascending: false })
-        : { data: [] };
+      let grades: any[] = [];
+      if (studentIds.length) {
+        const { data, error } = await db
+          .from("student_grades")
+          .select("*")
+          .in("student_id", studentIds)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("[academy-data] student_grades query failed", {
+            code: error.code ?? "UNKNOWN",
+            message: error.message,
+            studentCount: studentIds.length,
+          });
+          throw error;
+        }
+        grades = data ?? [];
+      }
       const byStudent = new Map<string, StudentGrade[]>();
       (grades ?? []).forEach((g: any) => {
         const list = byStudent.get(g.student_id) ?? [];
