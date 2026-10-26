@@ -3,6 +3,10 @@ import { supabase } from "@/integrations/client";
 
 export const Route = createFileRoute("/student")({
   beforeLoad: async () => {
+    // Supabase browser sessions live in localStorage; SSR has no access to them.
+    // Defer this guard to the browser rather than redirecting valid users during SSR.
+    if (typeof window === "undefined") return;
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw redirect({ to: "/student-login" });
 
