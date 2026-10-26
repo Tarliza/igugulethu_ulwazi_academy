@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,6 @@ export const Route = createFileRoute("/register")({
 
 export function RegisterPage() {
   const search = useSearch({ from: "/register" });
-  const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -109,7 +108,6 @@ export function RegisterPage() {
         proofFile,
       });
       setSubmitted(true);
-      window.setTimeout(() => navigate({ to: "/student-login" }), 3500);
     } catch (error) {
       setValidationError(error instanceof Error ? error.message : "We could not submit your application. Please try again.");
     } finally {
@@ -125,7 +123,10 @@ export function RegisterPage() {
           <Card className="max-w-md text-center p-8 space-y-4 shadow-xl border">
             <div className="mx-auto w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><CheckCircle2 className="h-8 w-8" /></div>
             <h2 className="text-2xl font-bold">Application Received!</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">Your proof of payment was securely uploaded. Staff will verify your payment and email your student login credentials after approval. Redirecting you to sign in...</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">Your proof of payment was securely uploaded. Staff will verify your payment and email your student login credentials after approval. This confirmation will remain here until you choose to continue.</p>
+            <Button asChild className="w-full font-bold">
+              <Link to="/student-login">Continue to Student Login</Link>
+            </Button>
           </Card>
         </div>
         <SiteFooter />
