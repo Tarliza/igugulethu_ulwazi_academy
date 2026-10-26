@@ -9,14 +9,23 @@ export const Route = createFileRoute("/student/payment")({
   component: StudentPaymentPage,
 });
 
-function displayStatus(value: string | null | undefined): string {
-  if (!value) return "Not verified";
+function displayPaymentStatus(value: string | null | undefined): string {
+  if (!value) return "Unverified";
   const normalized = value.trim().toLowerCase();
   if (["verified", "paid", "approved", "complete", "completed"].includes(normalized)) return "Verified";
   if (["pending", "submitted", "under_review", "under review"].includes(normalized)) return "Pending review";
   if (["rejected", "declined", "failed"].includes(normalized)) return "Rejected";
   if (["overdue", "payment overdue"].includes(normalized)) return "Payment overdue";
-  return value;
+  return "Unverified";
+}
+
+function displaySubscriptionStatus(value: string | null | undefined, hasVerifiedPayment: boolean): string {
+  if (!hasVerifiedPayment) return "Inactive";
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "active") return "Active";
+  if (normalized === "payment overdue" || normalized === "overdue") return "Payment overdue";
+  if (normalized === "access denied" || normalized === "inactive") return "Inactive";
+  return "Inactive";
 }
 
 function statusTone(value: string | null | undefined): string {
@@ -27,7 +36,7 @@ function statusTone(value: string | null | undefined): string {
   if (["pending", "submitted", "under_review", "under review"].includes(normalized ?? "")) {
     return "bg-amber-500/15 text-amber-700 border-amber-500/30";
   }
-  if (["rejected", "declined", "failed", "overdue", "payment overdue", "access denied"].includes(normalized ?? "")) {
+  if (["rejected", "declined", "failed", "overdue", "payment overdue", "access denied", "inactive", "unverified"].includes(normalized ?? "")) {
     return "bg-red-500/15 text-red-700 border-red-500/30";
   }
   return "bg-muted text-muted-foreground border-border";
@@ -48,7 +57,10 @@ export function StudentPaymentPage() {
       })
       .catch((error: unknown) => {
         console.error("[Student Billing] Could not load verified billing details", error);
-        if (!cancelled) setLoadError("We could not verify your billing information right now. Please refresh or contact the academy.");
+        if (!cancelled) {
+          setBilling(null);
+          setLoadError("We could not verify your billing information right now. Please refresh or contact the academy.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -56,8 +68,17 @@ export function StudentPaymentPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const paymentStatus = billing?.paymentStatus ?? billing?.studentPaymentStatus ?? null;
-  const subscriptionStatus = billing?.subscriptionStatus ?? null;
+  // Only an actual payment row with an explicitly approved/paid status can verify payment.
+  const paymentIsVerified = Boolean(
+    billing?.paymentSubmittedAt &&
+    ["verified", "paid", "approved", "complete", "completed"].includes(
+      billing.paymentStatus?.trim().toLowerCase() ?? "",
+    ),
+  );
+  const paymentStatus = billing?.paymentSubmittedAt
+    ? displayPaymentStatus(billing.paymentStatus)
+    : "Unverified";
+  const subscriptionStatus = displaySubscriptionStatus(billing?.subscriptionStatus, paymentIsVerified);
 
   return (
     <PortalShell role="student" title="Subscription & Fee Payments">
@@ -70,30 +91,30 @@ export function StudentPaymentPage() {
         {loading ? (
           <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading billing information from the academy database…</CardContent></Card>
         ) : loadError ? (
-          <Card><CardContent className="p-6 text-sm text-destructive">{loadError}</CardContent></Card>
+          <Card><CardContent className="p-6 text-sm text-destructive">{loadError} Subscription: Inactive. Payment: Unverified.</CardContent></Card>
         ) : !billing ? (
-          <Card><CardContent className="p-6 text-sm text-muted-foreground">No student billing profile was found for this signed-in account. No subscription or payment status can be confirmed.</CardContent></Card>
+          <Card><CardContent className="p-6 text-sm text-muted-foreground">No student billing profile was found for this signed-in account. Subscription: Inactive. Payment: Unverified. No subscription or payment status can be confirmed.</CardContent></Card>
         ) : (
           <Card className="border shadow-sm">
             <CardHeader>
               <div className="flex flex-wrap justify-between items-center gap-3">
                 <div className="space-y-2">
                   <Badge className={statusTone(subscriptionStatus)}>
-                    Subscription: {displayStatus(subscriptionStatus)}
+                    Subscription: {subscriptionStatus}
                   </Badge>
                   <Badge className={statusTone(paymentStatus)}>
-                    Payment: {displayStatus(paymentStatus)}
+                    Payment: {paymentStatus}
                   </Badge>
                 </div>
                 <div className="text-2xl font-extrabold text-primary">
-                  {billing.amount ? billing.amount : "Amount not recorded"}
-                  {billing.amount && <span className="text-xs text-muted-foreground font-normal"> (recorded amount)</span>}
+                  {billing.amount != null && billing.amount.trim() !== "" ? billing.amount : "Amount not recorded"}
+                  {billing.amount != null && billing.amount.trim() !== "" && <span className="text-xs text-muted-foreground font-normal"> (recorded amount)</span>}
                 </div>
               </div>
               <CardTitle className="text-lg font-bold mt-2">
                 {billing.plan ? `${billing.plan} Plan` : "Plan not recorded"}
               </CardTitle>
-              <CardDescription>Payment verification is based on the latest payment record available to your account. An absent or unreadable record is not treated as paid.</CardDescription>
+              <CardDescription>Payment verification requires a recorded payment row with an explicitly verified/paid status. Missing or unreadable records are never treated as paid.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-xs border-t pt-4">
               <div className="bg-muted/40 p-4 rounded-xl space-y-3">
