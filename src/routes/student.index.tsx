@@ -39,21 +39,46 @@ export function StudentDashboardPage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [upcomingClasses, setUpcomingClasses] = useState<ScheduleEvent[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isHydrating, setIsHydrating] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const current = getCurrentStudent();
-    if (!current) {
-      navigate({ to: "/student-login" });
-      return;
-    }
-    setStudent(current);
-    // Strict Subject Filtering
-    setResources(getResourcesForStudent(current.subjects || []));
-    setUpcomingClasses(getScheduleEvents());
-    setAnnouncements(getAnnouncements());
+    let active = true;
+    const refreshFromAcademyData = () => {
+      const current = getCurrentStudent();
+      if (!current) {
+        if (active) {
+          setIsHydrating(false);
+          navigate({ to: "/student-login" });
+        }
+        return;
+      }
+      if (!active) return;
+      setStudent(current);
+      setResources(getResourcesForStudent(current.subjects || []));
+      setUpcomingClasses(getScheduleEvents());
+      setAnnouncements(getAnnouncements());
+      setIsHydrating(false);
+    };
+
+    // The storage module hydrates asynchronously; its update event signals fresh data.
+    refreshFromAcademyData();
+    window.addEventListener("academy-data-updated", refreshFromAcademyData);
+    return () => {
+      active = false;
+      window.removeEventListener("academy-data-updated", refreshFromAcademyData);
+    };
   }, [navigate]);
 
+  if (isHydrating) {
+    return (
+      <PortalShell role="student" title="Student Dashboard">
+        <div className="mx-auto max-w-6xl p-6 text-sm text-muted-foreground" role="status" aria-live="polite">
+          Loading your student dashboard…
+        </div>
+      </PortalShell>
+    );
+  }
   if (!student) return null;
 
   const averageScore = getStudentAverage(student);
