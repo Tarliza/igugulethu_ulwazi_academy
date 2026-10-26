@@ -642,7 +642,8 @@ export interface StudentBillingRecord {
 
 /**
  * Load billing information for the authenticated student only.
- * No UI snapshot or default plan/amount/status is treated as authoritative billing data.
+ * The payments.student_id column references auth.users.id, not students.id.
+ * Missing payment records remain explicitly unverified; they are never inferred as paid.
  */
 export async function getCurrentStudentBilling(): Promise<StudentBillingRecord | null> {
   const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -659,10 +660,11 @@ export async function getCurrentStudentBilling(): Promise<StudentBillingRecord |
   if (studentError) throw new Error("Could not load your billing profile.");
   if (!student) return null;
 
+  // RLS policy and FK both scope payments.student_id to the authenticated user's auth ID.
   const { data: payment, error: paymentError } = await db
     .from("payments")
     .select("status, amount, payment_reference, reviewed_at, created_at")
-    .eq("student_id", student.id)
+    .eq("student_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -674,7 +676,7 @@ export async function getCurrentStudentBilling(): Promise<StudentBillingRecord |
     studentNumber: student.student_number ?? null,
     fullName: student.full_name ?? null,
     plan: student.plan ?? null,
-    amount: student.amount ?? payment?.amount ?? null,
+    amount: payment?.amount != null ? String(payment.amount) : student.amount != null ? String(student.amount) : null,
     subscriptionStatus: student.status ?? null,
     studentPaymentStatus: student.payment_status ?? null,
     paymentStatus: payment?.status ?? null,
