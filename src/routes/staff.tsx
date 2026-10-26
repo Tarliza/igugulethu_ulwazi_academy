@@ -12,8 +12,17 @@ export const Route = createFileRoute("/staff")({
       .eq("user_id", session.user.id)
       .maybeSingle();
 
-    if (error || !roleData || !["staff", "admin"].includes(roleData.role)) {
-      await supabase.auth.signOut();
+    if (error) {
+      // A temporary database/RLS/network failure must not destroy a valid auth session.
+      console.error("[staff-route] role verification failed", {
+        code: error.code ?? "UNKNOWN",
+        message: error.message,
+      });
+      throw new Error("We couldn't verify your staff access right now. Please refresh to try again.");
+    }
+
+    if (!roleData || !["staff", "admin"].includes(roleData.role)) {
+      // Deny access without signing out; this keeps auth state intact for a safe retry.
       throw redirect({ to: "/staff-login" });
     }
   },
