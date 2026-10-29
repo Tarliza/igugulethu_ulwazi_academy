@@ -372,7 +372,17 @@ export function addRegistration(reg: Omit<Registration, "id" | "status" | "creat
 }
 
 export async function approveRegistration(registrationId: string): Promise<{ student: Student; studentNumber: string; password?: string } | null> {
-  const { data, error } = await supabase.functions.invoke("activate-student", { body: { registrationId } });
+  // Resolve the current user session explicitly and attach its access token to the
+  // Edge Function request. Do not rely on an implicit Functions client header.
+  const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionResult.session?.access_token;
+  if (sessionError || !accessToken) {
+    throw new Error("Authentication required. Please sign in again before activating a student.");
+  }
+  const { data, error } = await supabase.functions.invoke("activate-student", {
+    body: { registrationId },
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (error) {
     let message = error.message || "Student activation request failed.";
     const context = (error as { context?: unknown }).context;
@@ -434,8 +444,16 @@ export async function addStudentDirectly(student: Omit<Student, "id" | "studentN
     throw new Error(registrationError.message);
   }
 
+  const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionResult.session?.access_token;
+  if (sessionError || !accessToken) {
+    await db.from("pending_registrations").delete().eq("id", registrationId);
+    throw new Error("Authentication required. Please sign in again before activating a student.");
+  }
+
   const { data, error } = await supabase.functions.invoke("activate-student", {
     body: { registrationId },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (error || !data?.success) {
