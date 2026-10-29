@@ -22,6 +22,8 @@ export function StaffVerificationsPage() {
   const [planError, setPlanError] = useState<string | null>(null);
   const [planBusyId, setPlanBusyId] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<Record<string, string[]>>({});
+  const [registrationPlans, setRegistrationPlans] = useState<Record<string, Registration["plan"]>>({});
+  const [registrationSubjects, setRegistrationSubjects] = useState<Record<string, string[]>>({});
   const [planNotice, setPlanNotice] = useState<string | null>(null);
   const planPrices: Record<string, string> = { "1 Subject": "R300", "2 Subjects": "R550", "3 Subjects": "R750" };
 
@@ -108,7 +110,20 @@ export function StaffVerificationsPage() {
     }
   };
 
-  const loadData = () => setRegistrations([...getPendingRegistrations()]);
+  const loadData = () => {
+    const rows = [...getPendingRegistrations()];
+    setRegistrations(rows);
+    setRegistrationPlans((current) => {
+      const next = { ...current };
+      for (const row of rows) if (!next[row.id]) next[row.id] = row.plan;
+      return next;
+    });
+    setRegistrationSubjects((current) => {
+      const next = { ...current };
+      for (const row of rows) if (!next[row.id]) next[row.id] = row.subjects.filter((subject) => ACADEMY_SUBJECTS.includes(subject as any));
+      return next;
+    });
+  };
   useEffect(() => {
     loadData();
     void loadPlanRequests();
@@ -118,9 +133,16 @@ export function StaffVerificationsPage() {
   }, []);
 
   const handleApprove = async (regId: string) => {
+    const plan = registrationPlans[regId];
+    const subjects = registrationSubjects[regId] ?? [];
+    const required = plan === "1 Subject" ? 1 : plan === "2 Subjects" ? 2 : 3;
+    if (subjects.length !== required) {
+      alert("Choose exactly " + required + " subject(s) for the selected plan before activating this student.");
+      return;
+    }
     setBusyId(regId);
     try {
-      const result = await approveRegistration(regId);
+      const result = await approveRegistration(regId, plan, subjects);
       if (!result) throw new Error("Student activation failed. Please try again.");
       setApprovedStudent(result);
       setShowApprovalModal(true);
@@ -263,8 +285,21 @@ export function StaffVerificationsPage() {
               <Card key={reg.id} className="shadow-sm border">
                 <CardHeader className="pb-3"><div className="flex items-start justify-between gap-3"><div><CardTitle className="text-lg font-bold">{reg.fullName}</CardTitle><CardDescription className="flex items-center gap-1.5 mt-1"><Mail className="h-3.5 w-3.5" />{reg.email}</CardDescription></div><Badge className="bg-amber-500/15 text-amber-700 border-amber-500/30">Pending</Badge></div></CardHeader>
                 <CardContent className="space-y-4 text-sm">
-                  <div className="grid grid-cols-2 gap-2 bg-muted/40 p-3 rounded-lg text-xs"><div><span className="text-muted-foreground">Grade:</span> <strong>{reg.grade}</strong></div><div><span className="text-muted-foreground">School:</span> <strong>{reg.school || "N/A"}</strong></div><div><span className="text-muted-foreground">Phone:</span> <strong>{reg.phone}</strong></div><div><span className="text-muted-foreground">Plan:</span> <strong>{reg.plan} ({reg.amount}/mo)</strong></div></div>
-                  <div><span className="text-xs font-semibold text-muted-foreground block mb-1.5">Selected Subjects:</span><div className="flex flex-wrap gap-1.5">{reg.subjects.map((sub) => <Badge key={sub} variant="secondary" className="text-xs font-normal"><BookOpen className="h-3 w-3 mr-1" />{sub}</Badge>)}</div></div>
+                  <div className="grid grid-cols-2 gap-2 bg-muted/40 p-3 rounded-lg text-xs"><div><span className="text-muted-foreground">Grade:</span> <strong>{reg.grade}</strong></div><div><span className="text-muted-foreground">School:</span> <strong>{reg.school || "N/A"}</strong></div><div><span className="text-muted-foreground">Phone:</span> <strong>{reg.phone}</strong></div><div><span className="text-muted-foreground">Requested plan:</span> <strong>{reg.plan} ({reg.amount}/mo)</strong></div></div>
+                  <div className="space-y-2 rounded-lg border p-3">
+                    <label className="block text-xs font-semibold text-muted-foreground" htmlFor={"activation-plan-" + reg.id}>Confirm plan before activation</label>
+                    <select id={"activation-plan-" + reg.id} className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={registrationPlans[reg.id] ?? reg.plan} onChange={(event) => setRegistrationPlans((current) => ({ ...current, [reg.id]: event.target.value as Registration["plan"] }))} disabled={busyId === reg.id}>
+                      <option value="1 Subject">1 Subject — R300/month</option><option value="2 Subjects">2 Subjects — R550/month</option><option value="3 Subjects">3 Subjects — R750/month</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">Select exactly {((registrationPlans[reg.id] ?? reg.plan) === "1 Subject" ? 1 : (registrationPlans[reg.id] ?? reg.plan) === "2 Subjects" ? 2 : 3)} subject(s) to match the plan. The server validates this again.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ACADEMY_SUBJECTS.map((subject) => <label key={subject} className="flex items-center gap-2 rounded-md border p-2 text-xs">
+                        <input type="checkbox" checked={(registrationSubjects[reg.id] ?? []).includes(subject)} disabled={busyId === reg.id} onChange={(event) => setRegistrationSubjects((current) => ({ ...current, [reg.id]: event.target.checked ? [...(current[reg.id] ?? []), subject] : (current[reg.id] ?? []).filter((value) => value !== subject) }))} />
+                        {subject}
+                      </label>)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{(registrationSubjects[reg.id] ?? []).length} subject(s) selected</p>
+                  </div>
                   {reg.proofOfPaymentName && <div className="flex items-center gap-2 p-2.5 rounded-md border bg-background text-xs"><FileText className="h-4 w-4 text-primary shrink-0" /><span className="truncate font-medium flex-1">{reg.proofOfPaymentName}</span><Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 shrink-0" onClick={() => handleViewProof(reg)} disabled={proofBusyId !== null}>{proofBusyId === reg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}View</Button></div>}
                   <div className="flex items-center gap-2 pt-2 border-t"><Button type="button" onClick={() => handleApprove(reg.id)} disabled={busyId !== null} className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700 text-white" size="sm">{busyId === reg.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}Approve & Activate</Button><Button type="button" variant="destructive" onClick={() => handleReject(reg.id)} disabled={busyId !== null} size="sm" className="gap-1.5"><XCircle className="h-4 w-4" />Reject</Button></div>
                 </CardContent>

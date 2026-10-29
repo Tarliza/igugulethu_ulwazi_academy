@@ -371,7 +371,7 @@ export function addRegistration(reg: Omit<Registration, "id" | "status" | "creat
   return newReg;
 }
 
-export async function approveRegistration(registrationId: string): Promise<{ student: Student; studentNumber: string; password?: string } | null> {
+export async function approveRegistration(registrationId: string, plan: Plan, subjects: string[]): Promise<{ student: Student; studentNumber: string; password?: string } | null> {
   // Resolve the current user session explicitly and attach its access token to the
   // Edge Function request. Do not rely on an implicit Functions client header.
   const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
@@ -380,7 +380,7 @@ export async function approveRegistration(registrationId: string): Promise<{ stu
     throw new Error("Authentication required. Please sign in again before activating a student.");
   }
   const { data, error } = await supabase.functions.invoke("activate-student", {
-    body: { registrationId },
+    body: { registrationId, plan, subjects },
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (error) {
