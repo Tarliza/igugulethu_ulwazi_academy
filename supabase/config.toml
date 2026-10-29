@@ -1,0 +1,10 @@
+project_id = "llweafdoytodapywjadk"
+
+# The activation handler validates the caller through withSupabase({ auth: "user" })
+# and enforces the admin/staff role before any privileged operation. Disable only
+# the gateway's legacy JWT check so current asymmetric Auth tokens reach that handler.
+[functions.activate-student]
+verify_jwt = false
+
+[functions.submit-registration]
+verify_jwt = false
