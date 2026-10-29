@@ -73,7 +73,7 @@ export default {
     const { error: roleError } = await ctx.supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "student" });
     if (roleError) { await ctx.supabaseAdmin.auth.admin.deleteUser(userId); return json({ success: false, error: roleError.message }, 500); }
 
-    const amount = reg.amount ?? (plan === "1 Subject" ? "R300" : plan === "3 Subjects" ? "R750" : "R550");
+    const amount = plan === "1 Subject" ? "R300" : plan === "3 Subjects" ? "R750" : "R550";
     const { error: studentError } = await ctx.supabaseAdmin.from("students").insert({ user_id: userId, student_number: studentNumber, full_name: `${reg.first_name} ${reg.last_name}`.trim(), email, phone: reg.phone, grade: reg.grade, school: reg.school, plan, amount, subjects, status: "Active", payment_status: "paid", activated_by: callerId, enrolled_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     if (studentError) { await ctx.supabaseAdmin.from("user_roles").delete().eq("user_id", userId); await ctx.supabaseAdmin.auth.admin.deleteUser(userId); return json({ success: false, error: studentError.message }, 500); }
     const resendKey = Deno.env.get("RESEND_API_KEY");
