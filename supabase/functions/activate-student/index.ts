@@ -36,11 +36,21 @@ export default {
     if (!callerId) return json({ success: false, error: "Authentication required" }, 401);
     const { data: staffRole } = await ctx.supabaseAdmin.from("user_roles").select("role").eq("user_id", callerId).in("role", ["admin", "staff"]).limit(1).maybeSingle();
     if (!staffRole) return json({ success: false, error: "Staff authorization required" }, 403);
-    const body = await req.json().catch(() => null) as { registrationId?: string } | null;
+    const body = await req.json().catch(() => null) as { registrationId?: string; plan?: string; subjects?: string[] } | null;
     if (!body?.registrationId) return json({ success: false, error: "registrationId is required" }, 400);
     const { data: reg, error: regError } = await ctx.supabaseAdmin.from("pending_registrations").select("*").eq("id", body.registrationId).maybeSingle();
     if (regError || !reg) return json({ success: false, error: "Registration not found" }, 404);
     if (reg.status === "activated") return json({ success: false, error: "Student is already activated" }, 409);
+
+    const planMap: Record<string, string> = { "1-subject": "1 Subject", "1 Subject": "1 Subject", "2-subjects": "2 Subjects", "2 Subjects": "2 Subjects", "3-subjects": "3 Subjects", "3 Subjects": "3 Subjects" };
+    const plan = planMap[String(body.plan ?? reg.plan)] ?? null;
+    const allowedSubjects = new Set(["Mathematics", "Physical Sciences", "Life Science", "Mathematical Literacy", "Economics", "Business Studies", "History", "Geography"]);
+    const rawSubjects = Array.isArray(body.subjects) ? body.subjects : reg.subjects;
+    const subjects = Array.isArray(rawSubjects) ? [...new Set(rawSubjects.map((subject) => String(subject).trim()))] : [];
+    const requiredSubjectCount = plan === "1 Subject" ? 1 : plan === "2 Subjects" ? 2 : plan === "3 Subjects" ? 3 : 0;
+    if (!plan || !requiredSubjectCount || subjects.length !== requiredSubjectCount || subjects.some((subject) => !allowedSubjects.has(subject))) {
+      return json({ success: false, error: "Before activation, select a valid plan and exactly the required number of approved subjects (1, 2, or 3)." }, 400);
+    }
 
     const year = new Date().getFullYear();
     let studentNumber = "";
@@ -63,9 +73,8 @@ export default {
     const { error: roleError } = await ctx.supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "student" });
     if (roleError) { await ctx.supabaseAdmin.auth.admin.deleteUser(userId); return json({ success: false, error: roleError.message }, 500); }
 
-    const plan = reg.plan === "1-subject" ? "1 Subject" : reg.plan === "3-subjects" ? "3 Subjects" : "2 Subjects";
     const amount = reg.amount ?? (plan === "1 Subject" ? "R300" : plan === "3 Subjects" ? "R750" : "R550");
-    const { error: studentError } = await ctx.supabaseAdmin.from("students").insert({ user_id: userId, student_number: studentNumber, full_name: `${reg.first_name} ${reg.last_name}`.trim(), email, phone: reg.phone, grade: reg.grade, school: reg.school, plan, amount, subjects: reg.subjects, status: "Active", payment_status: "paid", activated_by: callerId, enrolled_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    const { error: studentError } = await ctx.supabaseAdmin.from("students").insert({ user_id: userId, student_number: studentNumber, full_name: `${reg.first_name} ${reg.last_name}`.trim(), email, phone: reg.phone, grade: reg.grade, school: reg.school, plan, amount, subjects, status: "Active", payment_status: "paid", activated_by: callerId, enrolled_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     if (studentError) { await ctx.supabaseAdmin.from("user_roles").delete().eq("user_id", userId); await ctx.supabaseAdmin.auth.admin.deleteUser(userId); return json({ success: false, error: studentError.message }, 500); }
     const resendKey = Deno.env.get("RESEND_API_KEY");
     const from = Deno.env.get("RESEND_FROM_EMAIL");
