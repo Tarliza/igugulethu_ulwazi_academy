@@ -373,13 +373,32 @@ export function addRegistration(reg: Omit<Registration, "id" | "status" | "creat
 
 export async function approveRegistration(registrationId: string): Promise<{ student: Student; studentNumber: string; password?: string } | null> {
   const { data, error } = await supabase.functions.invoke("activate-student", { body: { registrationId } });
-  if (error || !data?.success) {
-    console.error("[Academy] Activation failed", error ?? data?.error);
-    return null;
+  if (error) {
+    let message = error.message || "Student activation request failed.";
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const payload = await context.clone().json() as { error?: string; message?: string };
+        message = payload.error || payload.message || message;
+      } catch {
+        // Keep the SDK's error message when the response is not JSON.
+      }
+    }
+    console.error("[Academy] Activation request failed", { message, name: error.name });
+    throw new Error(message);
   }
-  await hydrate();
+  if (!data?.success) {
+    const message = typeof data?.error === "string" ? data.error : "Student activation failed. Please try again.";
+    console.error("[Academy] Activation rejected", { message });
+    throw new Error(message);
+  }
+
+  await hydrate(true);
   const student = studentsCache.find((s) => s.studentNumber === data.studentNumber) ?? null;
-  return student ? { student, studentNumber: data.studentNumber, password: data.password } : null;
+  if (!student) {
+    throw new Error("The activation request succeeded, but the student roster has not refreshed yet. Refresh the staff page before trying again.");
+  }
+  return { student, studentNumber: data.studentNumber, password: data.password };
 }
 
 export async function rejectRegistration(registrationId: string) {
