@@ -372,14 +372,43 @@ export function addRegistration(reg: Omit<Registration, "id" | "status" | "creat
 }
 
 export async function approveRegistration(registrationId: string): Promise<{ student: Student; studentNumber: string; password?: string } | null> {
-  const { data, error } = await supabase.functions.invoke("activate-student", { body: { registrationId } });
-  if (error || !data?.success) {
-    console.error("[Academy] Activation failed", error ?? data?.error);
-    return null;
+  // Resolve the current user session explicitly and attach its access token to the
+  // Edge Function request. Do not rely on an implicit Functions client header.
+  const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionResult.session?.access_token;
+  if (sessionError || !accessToken) {
+    throw new Error("Authentication required. Please sign in again before activating a student.");
   }
-  await hydrate();
+  const { data, error } = await supabase.functions.invoke("activate-student", {
+    body: { registrationId },
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (error) {
+    let message = error.message || "Student activation request failed.";
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const payload = await context.clone().json() as { error?: string; message?: string };
+        message = payload.error || payload.message || message;
+      } catch {
+        // Keep the SDK's error message when the response is not JSON.
+      }
+    }
+    console.error("[Academy] Activation request failed", { message, name: error.name });
+    throw new Error(message);
+  }
+  if (!data?.success) {
+    const message = typeof data?.error === "string" ? data.error : "Student activation failed. Please try again.";
+    console.error("[Academy] Activation rejected", { message });
+    throw new Error(message);
+  }
+
+  await hydrate(true);
   const student = studentsCache.find((s) => s.studentNumber === data.studentNumber) ?? null;
-  return student ? { student, studentNumber: data.studentNumber, password: data.password } : null;
+  if (!student) {
+    throw new Error("The activation request succeeded, but the student roster has not refreshed yet. Refresh the staff page before trying again.");
+  }
+  return { student, studentNumber: data.studentNumber, password: data.password };
 }
 
 export async function rejectRegistration(registrationId: string) {
@@ -415,8 +444,16 @@ export async function addStudentDirectly(student: Omit<Student, "id" | "studentN
     throw new Error(registrationError.message);
   }
 
+  const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionResult.session?.access_token;
+  if (sessionError || !accessToken) {
+    await db.from("pending_registrations").delete().eq("id", registrationId);
+    throw new Error("Authentication required. Please sign in again before activating a student.");
+  }
+
   const { data, error } = await supabase.functions.invoke("activate-student", {
     body: { registrationId },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (error || !data?.success) {

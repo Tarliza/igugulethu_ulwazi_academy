@@ -9,10 +9,30 @@ const corsHeaders = {
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 
 export default {
-  fetch: withSupabase({ auth: "user" }, async (req, ctx) => {
+  fetch: withSupabase({ auth: "none" }, async (req, ctx) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 405);
-    const callerId = ctx.userClaims?.sub;
+    // Verify the bearer token directly against Supabase Auth. The project's ES256
+    // access tokens reach the function gateway, but withSupabase userClaims is empty.
+    // Never trust decoded JWT claims alone: /auth/v1/user validates the signature/session.
+    const authorization = req.headers.get("authorization") ?? req.headers.get("Authorization");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!authorization?.startsWith("Bearer ") || !supabaseUrl || !anonKey) {
+      return json({ success: false, error: "Authentication required" }, 401);
+    }
+    let callerId: string | null = null;
+    try {
+      const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: { apikey: anonKey, Authorization: authorization },
+      });
+      if (authResponse.ok) {
+        const authUser = await authResponse.json() as { id?: string };
+        callerId = authUser.id ?? null;
+      }
+    } catch (error) {
+      console.error("[activate-student] Auth token validation failed", error);
+    }
     if (!callerId) return json({ success: false, error: "Authentication required" }, 401);
     const { data: staffRole } = await ctx.supabaseAdmin.from("user_roles").select("role").eq("user_id", callerId).in("role", ["admin", "staff"]).limit(1).maybeSingle();
     if (!staffRole) return json({ success: false, error: "Staff authorization required" }, 403);
