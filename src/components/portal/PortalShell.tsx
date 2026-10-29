@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCurrentStudent, studentSignOut, Student } from "@/lib/student-storage";
+import { supabase } from "@/integrations/client";
 
 interface NavItem { label: string; to: string; icon: React.ElementType; }
 interface PortalShellProps {
@@ -20,16 +21,62 @@ interface PortalShellProps {
 export function PortalShell({ title = "Portal", role, userType, userEmail, userName, children }: PortalShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
+  const [staffName, setStaffName] = useState("Staff");
+  const [staffEmail, setStaffEmail] = useState("Academy Staff");
   const [, setDataVersion] = useState(0);
   const navigate = useNavigate();
   const isStudent = role === "student" || userType === "student";
 
   useEffect(() => {
     const refresh = () => {
-      if (isStudent) setActiveStudent(getCurrentStudent());
+      if (isStudent) {
+        setActiveStudent(getCurrentStudent());
+      }
       setDataVersion((value) => value + 1);
     };
+
+    const loadStaffIdentity = async () => {
+      if (isStudent) return;
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        setStaffName("Staff");
+        setStaffEmail("Academy Staff");
+        return;
+      }
+
+      setStaffEmail(user.email || "Academy Staff");
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("[staff-identity] Could not load staff profile", {
+          code: profileError.code,
+          message: profileError.message,
+        });
+      }
+
+      const profileName = [profile?.first_name, profile?.last_name]
+        .filter((part): part is string => Boolean(part?.trim()))
+        .join(" ")
+        .trim();
+      const metadataName =
+        typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name
+          : typeof user.user_metadata?.name === "string"
+            ? user.user_metadata.name
+            : "";
+      const emailName = user.email?.split("@")[0]?.replace(/[._-]+/g, " ");
+
+      setStaffName(profileName || metadataName || emailName || "Staff");
+    };
+
     refresh();
+    void loadStaffIdentity();
     window.addEventListener("academy-data-updated", refresh);
     return () => window.removeEventListener("academy-data-updated", refresh);
   }, [isStudent]);
@@ -54,8 +101,8 @@ export function PortalShell({ title = "Portal", role, userType, userEmail, userN
     { label: "Messages", to: "/staff/messages", icon: MessageSquare },
   ];
   const navItems = isStudent ? studentNavItems : staffNavItems;
-  const displayName = isStudent ? activeStudent?.fullName || userName || "Student" : userName || "Kuhle Ngam";
-  const displayEmail = isStudent ? activeStudent?.studentNumber || activeStudent?.email || userEmail || "student@academy.co.za" : userEmail || "Academy Staff";
+  const displayName = isStudent ? activeStudent?.fullName || userName || "Student" : staffName || userName || "Staff";
+  const displayEmail = isStudent ? activeStudent?.studentNumber || activeStudent?.email || userEmail || "student@academy.co.za" : staffEmail || userEmail || "Academy Staff";
 
   const handleLogout = async () => {
     if (isStudent) {
