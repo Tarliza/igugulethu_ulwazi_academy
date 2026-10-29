@@ -40,60 +40,47 @@ Deno.serve(async (req: Request) => {
   }
 
   let email = identifier.toLowerCase();
-
-  // Student ID -> email mapping stays inside this server-side function.
-  // The service-role key is never returned to the caller.
   if (!identifier.includes("@")) {
-    if (!/^RA-\d{4}-\d{4}$/i.test(identifier)) {
-      return json({ error: "Invalid student credentials" }, 401);
-    }
+    // Invalid IDs and IDs that do not exist use the same dummy address and
+    // still reach Auth, making response status/timing less useful for enumeration.
+    email = "unknown-student@invalid.example";
+    if (/^RA-\d{4}-\d{4}$/i.test(identifier)) {
+      const lookupUrl = new URL("/rest/v1/students", supabaseUrl);
+      lookupUrl.searchParams.set("select", "email");
+      lookupUrl.searchParams.set("student_number", `eq.${identifier}`);
+      lookupUrl.searchParams.set("status", "eq.Active");
+      lookupUrl.searchParams.set("limit", "1");
 
-    const lookupUrl = new URL("/rest/v1/students", supabaseUrl);
-    lookupUrl.searchParams.set("select", "email");
-    lookupUrl.searchParams.set("student_number", `eq.${identifier}`);
-    lookupUrl.searchParams.set("status", "eq.Active");
-    lookupUrl.searchParams.set("limit", "1");
-
-    let rows: Array<{ email?: string | null }> = [];
-    try {
-      const lookup = await fetch(lookupUrl, {
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          Accept: "application/json",
-        },
-      });
-      if (!lookup.ok) {
-        console.error("[student-login] Student lookup failed with status", lookup.status);
+      try {
+        const lookup = await fetch(lookupUrl, {
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            Accept: "application/json",
+          },
+        });
+        if (!lookup.ok) {
+          console.error("[student-login] Student lookup failed with status", lookup.status);
+          return json({ error: "Login service unavailable" }, 503);
+        }
+        const rows = await lookup.json() as Array<{ email?: string | null }>;
+        if (rows[0]?.email) email = rows[0].email.trim().toLowerCase();
+      } catch (error) {
+        console.error("[student-login] Student lookup request failed", error);
         return json({ error: "Login service unavailable" }, 503);
       }
-      rows = await lookup.json();
-    } catch (error) {
-      console.error("[student-login] Student lookup request failed", error);
-      return json({ error: "Login service unavailable" }, 503);
     }
-
-    if (!rows[0]?.email) return json({ error: "Invalid student credentials" }, 401);
-    email = rows[0].email.trim().toLowerCase();
   }
 
-  // Delegate password verification and token issuance to Supabase Auth.
-  // Return Auth's token payload only on success; never return the resolved
-  // email or lookup result. Auth's own password grant rate limits apply.
+  // Supabase Auth verifies the password and applies its password-grant limits.
+  // The resolved email and lookup result are never returned to the browser.
   try {
     const authResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: "POST",
-      headers: {
-        apikey: anonKey,
-        "Content-Type": "application/json",
-      },
+      headers: { apikey: anonKey, "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-
-    if (!authResponse.ok) {
-      // Avoid revealing whether an ID/email exists or whether the password was wrong.
-      return json({ error: "Invalid student credentials" }, 401);
-    }
+    if (!authResponse.ok) return json({ error: "Invalid student credentials" }, 401);
 
     const session = await authResponse.json();
     if (!session?.access_token || !session?.refresh_token) {
