@@ -21,6 +21,20 @@ CREATE INDEX IF NOT EXISTS plan_change_requests_status_created_idx
 
 ALTER TABLE public.plan_change_requests ENABLE ROW LEVEL SECURITY;
 
+-- Students may submit a payment row only as pending. Verification fields and status
+-- remain staff-controlled; the client cannot mark its own payment as paid.
+DROP POLICY IF EXISTS "Students submit own payments" ON public.payments;
+CREATE POLICY "Students submit own payments"
+  ON public.payments FOR INSERT TO authenticated
+  WITH CHECK (
+    student_id = auth.uid()
+    AND status = 'pending'
+    AND reviewed_by IS NULL
+    AND reviewed_at IS NULL
+    AND file_path LIKE (auth.uid()::text || '/%')
+  );
+
+
 DROP POLICY IF EXISTS "Students read own plan change requests" ON public.plan_change_requests;
 CREATE POLICY "Students read own plan change requests"
   ON public.plan_change_requests FOR SELECT TO authenticated
