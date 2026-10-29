@@ -626,6 +626,66 @@ export function verifyStudentLogin(): { success: boolean; error?: string } {
   return { success: false, error: "Legacy password verification has been removed. Use Supabase Auth." };
 }
 
+export interface StudentBillingRecord {
+  studentId: string;
+  studentNumber: string | null;
+  fullName: string | null;
+  plan: string | null;
+  amount: string | null;
+  subscriptionStatus: string | null;
+  studentPaymentStatus: string | null;
+  paymentStatus: string | null;
+  paymentReference: string | null;
+  paymentReviewedAt: string | null;
+  paymentSubmittedAt: string | null;
+}
+
+/**
+ * Load billing information for the authenticated student only.
+ * The payments.student_id column references auth.users.id, not students.id.
+ * Missing payment records remain explicitly unverified; they are never inferred as paid.
+ */
+export async function getCurrentStudentBilling(): Promise<StudentBillingRecord | null> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) throw new Error("Could not verify the current login.");
+  const user = authData.user;
+  if (!user) return null;
+
+  const { data: student, error: studentError } = await db
+    .from("students")
+    .select("id, user_id, student_number, full_name, plan, amount, status, payment_status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (studentError) throw new Error("Could not load your billing profile.");
+  if (!student) return null;
+
+  // RLS policy and FK both scope payments.student_id to the authenticated user's auth ID.
+  const { data: payment, error: paymentError } = await db
+    .from("payments")
+    .select("status, amount, payment_reference, reviewed_at, created_at")
+    .eq("student_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (paymentError) throw new Error("Could not verify your payment status.");
+
+  return {
+    studentId: student.id,
+    studentNumber: student.student_number ?? null,
+    fullName: student.full_name ?? null,
+    plan: student.plan ?? null,
+    amount: payment?.amount != null ? String(payment.amount) : student.amount != null ? String(student.amount) : null,
+    subscriptionStatus: student.status ?? null,
+    studentPaymentStatus: student.payment_status ?? null,
+    paymentStatus: payment?.status ?? null,
+    paymentReference: payment?.payment_reference ?? null,
+    paymentReviewedAt: payment?.reviewed_at ?? null,
+    paymentSubmittedAt: payment?.created_at ?? null,
+  };
+}
+
 export function getCurrentStudent(): Student | null {
   if (typeof window === "undefined") return null;
   ensureHydrated();
